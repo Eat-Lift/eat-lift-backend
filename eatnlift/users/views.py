@@ -8,7 +8,7 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 
-from .serializers import UserSerializer
+from .serializer import UserSerializer
 
 @api_view(['POST'])
 def login(request):
@@ -25,6 +25,9 @@ def login(request):
 
 @api_view(['POST'])
 def register(request):
+
+    print(request.data)
+
     serializer = UserSerializer(data=request.data)
 
     if serializer.is_valid():
