@@ -7,8 +7,6 @@ class CustomUser(AbstractUser):
     first_name = None
     last_name = None
     is_active = None
-    is_staff = None
-    is_superuser = None
     date_joined = None
     last_login = None
     groups = None
