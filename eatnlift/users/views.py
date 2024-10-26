@@ -7,17 +7,32 @@ from rest_framework import status
 
 from django.contrib.auth.models import User
 from .models import CustomUser
-from django.shortcuts import get_object_or_404
 
 from .serializer import UserSerializer
 
+from django.core.validators import EmailValidator
+from django.core.exceptions import ValidationError
+
 @api_view(['POST'])
 def login(request):
-    
-    user = get_object_or_404(CustomUser, username=request.data['username'])
+    errors = []
+    user = None
 
-    if not user.check_password(request.data['password']):
-        return Response({"error": "Invalid password"}, status=status.HTTP_400_BAD_REQUEST)
+    if 'username' not in request.data:
+        errors.append("Es requereix el nom d'usuari")
+    else:
+        user = CustomUser.objects.filter(username=request.data['username']).first()
+        if not user:
+            errors.append("L'usuari no existeix")
+    
+
+    if 'password' not in request.data:
+        errors.append("Es requereix la contrasenya")
+    elif user and not user.check_password(request.data['password']):
+        errors.append("La contrasenya és incorrecta")
+
+    if errors:
+        return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
     token, created = Token.objects.get_or_create(user=user)
     serializer = UserSerializer(instance=user)
@@ -25,23 +40,40 @@ def login(request):
     return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-def register(request):
+def signin(request):
+    errors = []
 
-    print(request.data)
+    if 'username' not in request.data:
+        errors.append("Es requereix el nom d'usuari")
+    if 'email' not in request.data:
+        errors.append("Es requereix el correu electrònic")
+    else:
+        email_validator = EmailValidator()
+        try:
+            email_validator(request.data['email'])
+        except ValidationError:
+            errors.append("El correu electrònic no és vàlid")
+    if 'password' not in request.data:
+        errors.append("Es requereix la contrasenya")
 
-    serializer = UserSerializer(data=request.data)
+    if errors:
+        return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
-    if serializer.is_valid():
-        serializer.save()
 
-        user = CustomUser.objects.get(username=serializer.data['username'])
-        user.set_password(serializer.data['password'])
-        user.save()
+    if CustomUser.objects.filter(username=request.data['username']).exists():
+        return Response({"errors": ["L'usuari ja existeix"]}, status=status.HTTP_400_BAD_REQUEST)
+    if CustomUser.objects.filter(email=request.data["email"]).exists():
+        return Response({"errors": ["El correu electrònic ja està en ús"]}, status=status.HTTP_400_BAD_REQUEST)
 
-        token = Token.objects.create(user=user)
-        return Response({'token': token.key, "user": serializer.data}, status=status.HTTP_201_CREATED)
+    user = CustomUser(username=request.data["username"], email=request.data["email"])
+    user.set_password(request.data["password"])
+    user.save()
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    token = Token.objects.create(user=user)
+
+    serializer = UserSerializer(user)
+
+    return Response({'token': token.key, "user": serializer.data}, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
