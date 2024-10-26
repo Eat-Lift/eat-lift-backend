@@ -14,32 +14,6 @@ from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
 
 @api_view(['POST'])
-def login(request):
-    errors = []
-    user = None
-
-    if 'username' not in request.data:
-        errors.append("Es requereix el nom d'usuari")
-    else:
-        user = CustomUser.objects.filter(username=request.data['username']).first()
-        if not user:
-            errors.append("L'usuari no existeix")
-    
-
-    if 'password' not in request.data:
-        errors.append("Es requereix la contrasenya")
-    elif user and not user.check_password(request.data['password']):
-        errors.append("La contrasenya és incorrecta")
-
-    if errors:
-        return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
-
-    token, created = Token.objects.get_or_create(user=user)
-    serializer = UserSerializer(instance=user)
-
-    return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
-
-@api_view(['POST'])
 def signin(request):
     errors = []
 
@@ -75,6 +49,31 @@ def signin(request):
 
     return Response({'token': token.key, "user": serializer.data}, status=status.HTTP_201_CREATED)
 
+@api_view(['POST'])
+def login(request):
+    errors = []
+    user = None
+
+    if 'username' not in request.data:
+        errors.append("Es requereix el nom d'usuari")
+    else:
+        user = CustomUser.objects.filter(username=request.data['username']).first()
+        if not user:
+            errors.append("L'usuari no existeix")
+    
+
+    if 'password' not in request.data:
+        errors.append("Es requereix la contrasenya")
+    elif user and not user.check_password(request.data['password']):
+        errors.append("La contrasenya és incorrecta")
+
+    if errors:
+        return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    token, created = Token.objects.get_or_create(user=user)
+    serializer = UserSerializer(instance=user)
+
+    return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
