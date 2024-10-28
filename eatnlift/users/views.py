@@ -75,10 +75,17 @@ def login(request):
 
     return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
 
-@api_view(['POST'])
-@authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def profile(request):
-    serializer = UserSerializer(instance=request.user)
 
-    return Response(serializer.data, status=status.HTTP_200_OK)
+@api_view(['GET'])
+# @authentication_classes([TokenAuthentication])
+# @permission_classes([IsAuthenticated])
+def profile(request, id):
+    errors = []
+    
+    try:
+        user = CustomUser.objects.get(id=id)
+    except:
+        return Response({"errors": ["L'usuari no existeix"]}, status=status.HTTP_404_NOT_FOUND) 
+
+    serializer = UserSerializer(instance=user)
+    return Response({"user": serializer.data}, status=status.HTTP_200_OK)
