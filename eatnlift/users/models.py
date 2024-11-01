@@ -40,7 +40,7 @@ class CustomUser(AbstractUser):
 
     email = models.EmailField(blank=False, null=False, unique=True)
     description = models.TextField(null=True, blank=True)
-    picture = models.URLField(max_length=255, blank=True)
+    picture = models.ImageField(default="default_user.png", blank=True)
     profile_info = models.OneToOneField(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     
 
