@@ -8,7 +8,7 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from .models import CustomUser
 
-from .serializer import UserSerializer
+from .serializer import UserSerializer, UserProfileSerializer
 
 from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
@@ -77,9 +77,7 @@ def login(request):
 
 
 @api_view(['GET'])
-# @authentication_classes([TokenAuthentication])
-# @permission_classes([IsAuthenticated])
-def profile(request, id):
+def get(request, id):
     errors = []
     
     try:
@@ -89,3 +87,47 @@ def profile(request, id):
 
     serializer = UserSerializer(instance=user)
     return Response({"user": serializer.data}, status=status.HTTP_200_OK)
+
+@api_view(['PUT'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def edit(request, id):
+    errors = []
+
+    try:
+        user = CustomUser.objects.get(id=id)
+    except:
+        return Response({"errors": ["L'usuari no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UserProfileSerializer(instance=user, data=request.data, partial=True)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"user": serializer.data}, status=status.HTTP_200_OK)
+
+    return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def edit_picture(request, id):
+    errors = []
+    
+    try:
+        user = CustomUser.objects.get(id=id)
+    except:
+        return Response({"errors": ["L'usuari no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.user != user:
+        return Response({"errors": ["You do not have permission to update this picture."]}, status=status.HTTP_403_FORBIDDEN)
+
+    if "picture" not in request.data:
+        return Response({"errors": ["A 'picture' field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = UserSerializer(instance=user, data={"picture": request.data["picture"]}, partial=True)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"user": serializer.data}, status=status.HTTP_200_OK)
+
+    return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
