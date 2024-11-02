@@ -91,13 +91,14 @@ def get(request, id):
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
-def edit(request, id):
-    errors = []
-
+def editPersonalInformation(request, id):
     try:
         user = CustomUser.objects.get(id=id)
-    except:
-        return Response({"errors": ["L'usuari no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+    except CustomUser.DoesNotExist:
+        return Response({"errors": ["L'usuari no existeix."]}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.user != user:
+        return Response({"errors": ["No tens permís per actualitzar aquesta informació personal."]}, status=status.HTTP_403_FORBIDDEN)
 
     serializer = UserProfileSerializer(instance=user, data=request.data, partial=True)
 
@@ -105,29 +106,33 @@ def edit(request, id):
         serializer.save()
         return Response({"user": serializer.data}, status=status.HTTP_200_OK)
 
-    return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"errors": ["Modificaicó invàlida"]}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
-def edit_picture(request, id):
-    errors = []
-    
+def editProfile(request, id):
     try:
         user = CustomUser.objects.get(id=id)
-    except:
-        return Response({"errors": ["L'usuari no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+    except CustomUser.DoesNotExist:
+        return Response({"errors": ["L'usuari no existeix."]}, status=status.HTTP_404_NOT_FOUND)
 
     if request.user != user:
-        return Response({"errors": ["You do not have permission to update this picture."]}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"errors": ["No tens permís per actualitzar aquest perfil."]}, status=status.HTTP_403_FORBIDDEN)
 
-    if "picture" not in request.data:
-        return Response({"errors": ["A 'picture' field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+    if "picture" not in request.data and "description" not in request.data:
+        return Response({"errors": ["No has modificat cap camps"]}, status=status.HTTP_400_BAD_REQUEST)
 
-    serializer = UserSerializer(instance=user, data={"picture": request.data["picture"]}, partial=True)
+    update_data = {}
+    if "picture" in request.data:
+        update_data["picture"] = request.data["picture"]
+    if "description" in request.data:
+        update_data["description"] = request.data["description"]
+
+    serializer = UserSerializer(instance=user, data=update_data, partial=True)
 
     if serializer.is_valid():
         serializer.save()
         return Response({"user": serializer.data}, status=status.HTTP_200_OK)
 
-    return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"errors": ["Modificaicó invàlida"]}, status=status.HTTP_400_BAD_REQUEST)
