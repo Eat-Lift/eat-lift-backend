@@ -13,6 +13,9 @@ from .serializer import UserSerializer, UserProfileSerializer
 from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
 
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
 @api_view(['POST'])
 def signin(request):
     errors = []
@@ -75,6 +78,43 @@ def login(request):
 
     return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+def googleLogin(request):
+    google_token = request.data.get('google_token')
+    if not google_token:
+        return Response({"errors": ["No token provided"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            google_token,
+            google_requests.Request(),
+            "73227425624-ffg6valiprbvrkpb46riqu3on8jm25uu.apps.googleusercontent.com"
+        )
+
+        print(idinfo)
+        google_email = idinfo.get('email')
+        google_username = google_email.split('@')[0]
+        google_picture = idinfo.get('picture')
+
+        try:
+            user = CustomUser.objects.get(email=google_email)
+        except CustomUser.DoesNotExist:
+            user = CustomUser(username=google_username, email=google_email)
+            user.save()
+
+        if google_picture:
+            user.picture = google_picture
+            user.save()
+
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'token': token.key,
+            'user': UserSerializer(user).data,
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({"errors": ["Invalid token"]}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def get(request, id):
