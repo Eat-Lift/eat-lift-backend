@@ -1,5 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
+import random
 
 
 class UserActivity(models.TextChoices):
@@ -47,3 +51,16 @@ class CustomUser(AbstractUser):
     EMAIL_FIELD = "email"
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ["email"]
+
+class PasswordResetCode(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="password_reset_codes")
+    code = models.CharField(max_length=6)
+    expiration = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        self.code = str(random.randint(100000, 999999))
+        self.expiration = timezone.now() + timedelta(minutes=10)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        return timezone.now() < self.expiration

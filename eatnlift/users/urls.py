@@ -8,4 +8,6 @@ urlpatterns = [
     path('<int:id>', views.get),
     path('<int:id>/editPersonalInformation', views.editPersonalInformation),
     path('<int:id>/editProfile', views.editProfile),
+    path('reset_password', views.resetPassword),
+    path('new_password', views.newPassword),
 ]

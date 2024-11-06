@@ -6,7 +6,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework import status
 
 from django.contrib.auth.models import User
-from .models import CustomUser
+from .models import CustomUser, PasswordResetCode
 
 from .serializer import UserSerializer, UserProfileSerializer
 
@@ -15,6 +15,10 @@ from django.core.exceptions import ValidationError
 
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+
+from django.core.mail import EmailMultiAlternatives
+from decouple import config
+from django.template.loader import render_to_string
 
 @api_view(['POST'])
 def signin(request):
@@ -82,7 +86,7 @@ def login(request):
 def googleLogin(request):
     google_token = request.data.get('google_token')
     if not google_token:
-        return Response({"errors": ["No token provided"]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"errors": ["Es requereix el token"]}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         idinfo = id_token.verify_oauth2_token(
@@ -91,16 +95,18 @@ def googleLogin(request):
             "73227425624-ffg6valiprbvrkpb46riqu3on8jm25uu.apps.googleusercontent.com"
         )
 
-        print(idinfo)
         google_email = idinfo.get('email')
         google_username = google_email.split('@')[0]
         google_picture = idinfo.get('picture')
+
+        signin = False
 
         try:
             user = CustomUser.objects.get(email=google_email)
         except CustomUser.DoesNotExist:
             user = CustomUser(username=google_username, email=google_email)
             user.save()
+            signin = True
 
         if google_picture:
             user.picture = google_picture
@@ -108,13 +114,19 @@ def googleLogin(request):
 
         token, created = Token.objects.get_or_create(user=user)
 
-        return Response({
-            'token': token.key,
-            'user': UserSerializer(user).data,
-        }, status=status.HTTP_200_OK)
+        if (signin):
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data,
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data,
+            }, status=status.HTTP_200_OK)
 
     except ValueError:
-        return Response({"errors": ["Invalid token"]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"errors": ["Token invàlid"]}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def get(request, id):
@@ -176,3 +188,61 @@ def editProfile(request, id):
         return Response({"user": serializer.data}, status=status.HTTP_200_OK)
 
     return Response({"errors": ["Modificaicó invàlida"]}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def resetPassword(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({"errors": ["Es requereix l'email"]}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = CustomUser.objects.get(email=email)
+    except CustomUser.DoesNotExist:
+        return Response({"errors": ["No existeix cam compte que coincideixi amb l'email introduït"]}, status=status.HTTP_404_NOT_FOUND)
+
+    reset_code = PasswordResetCode.objects.create(user=user)
+    
+    html_content = render_to_string('password_reset_email.html', {
+        'user': user,
+        'reset_code': reset_code.code
+    })
+
+    email_message = EmailMultiAlternatives(
+        subject="Codi de Restabliment de Contrasenya",
+        body=f"El teu codi de restabliment de contrasenya és {reset_code.code}. Caduca en 10 minuts.",
+        from_email=config('EMAIL_HOST_USER'),
+        to=[email]
+    )
+    email_message.attach_alternative(html_content, "text/html")
+    email_message.send()
+
+    return Response({"message": ["Email enviat"]}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def newPassword(request):
+    email = request.data.get('email')
+    reset_code = request.data.get('reset_code')
+    new_password = request.data.get('new_password')
+
+    if not email or not reset_code or not new_password:
+        return Response({"errors": ["Es requereix l'email, el codi i una nova contrasenya"]}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = CustomUser.objects.get(email=email)
+    except CustomUser.DoesNotExist:
+        return Response({"errors": ["Email invàlid"]}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        code_entry = PasswordResetCode.objects.get(user=user, code=reset_code)
+    except PasswordResetCode.DoesNotExist:
+        return Response({"errors": ["El codi és invàlid"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not code_entry.is_valid():
+        return Response({"errors": ["El codi ha expirat"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+
+    code_entry.delete()
+
+    return Response({"message": ["S'ha canviat al contrasenya"]}, status=status.HTTP_200_OK)
