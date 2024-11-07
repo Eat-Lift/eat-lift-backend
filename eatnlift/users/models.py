@@ -44,7 +44,7 @@ class CustomUser(AbstractUser):
 
     email = models.EmailField(blank=False, null=False, unique=True)
     description = models.TextField(null=True, blank=True)
-    picture = models.URLField(default="gs://eatnlift-d2f8e.firebasestorage.app/uploads/user_profile/default_user.png", blank=True)
+    picture = models.URLField(default="https://firebasestorage.googleapis.com/v0/b/eatnlift-d2f8e.firebasestorage.app/o/uploads%2Fuser_profile%2Fdefault_user.png?alt=media&token=379f0844-dd73-44ec-9da1-58aa7948e2fc", blank=True)
     profile_info = models.OneToOneField(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     
 
