@@ -8,7 +8,7 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from .models import CustomUser, PasswordResetCode, UserProfile
 
-from .serializer import UserSerializer, UserProfileSerializer
+from .serializers import UserSerializer, UserProfileSerializer
 
 from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
