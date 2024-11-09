@@ -14,7 +14,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-o$rkzq3y$f14)h!_c0bl05f5&-jmtzmr7@8@ve)a28f@vlqf@4'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', "False").lower() == "true"
+# DEBUG = config('DEBUG', "False").lower() == "true"
+DEBUG = True
 
 
 ALLOWED_HOSTS = config("ALLOWED_HOSTS").split(" ")
@@ -75,8 +76,8 @@ DATABASES = {
     }
 }
 
-database_url = config("DATABASE_URL")
-DATABASES["default"] = dj_database_url.parse(database_url)
+# database_url = config("DATABASE_URL")
+# DATABASES["default"] = dj_database_url.parse(database_url)
 
 
 # Password validation

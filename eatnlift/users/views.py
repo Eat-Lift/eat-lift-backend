@@ -6,7 +6,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework import status
 
 from django.contrib.auth.models import User
-from .models import CustomUser, PasswordResetCode
+from .models import CustomUser, PasswordResetCode, UserProfile
 
 from .serializer import UserSerializer, UserProfileSerializer
 
@@ -152,13 +152,35 @@ def editPersonalInformation(request, id):
     if request.user != user:
         return Response({"errors": ["No tens permís per actualitzar aquesta informació personal."]}, status=status.HTTP_403_FORBIDDEN)
 
-    serializer = UserProfileSerializer(instance=user, data=request.data, partial=True)
+    if not user.profile_info:
+        user.profile_info = UserProfile.objects.create()
+        user.save()
+
+    serializer = UserProfileSerializer(instance=user.profile_info, data=request.data, partial=True)
 
     if serializer.is_valid():
         serializer.save()
         return Response({"user": serializer.data}, status=status.HTTP_200_OK)
 
-    return Response({"errors": ["Modificaicó invàlida"]}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"errors": ["Modificació invàlida"]}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getPersonalInformation(request, id):
+    try:
+        user = CustomUser.objects.get(id=id)
+    except CustomUser.DoesNotExist:
+        return Response({"errors": ["L'usuari no existeix."]}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.user != user:
+        return Response({"errors": ["No tens permís per accedir a aquesta informació personal."]}, status=status.HTTP_403_FORBIDDEN)
+
+    if not user.profile_info:
+        return Response({"errors": ["No hi ha informació personal disponible per aquest usuari."]}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UserProfileSerializer(user.profile_info)
+    return Response({"user": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
