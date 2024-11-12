@@ -65,7 +65,6 @@ def listFoodItems(request):
     if search_query:
         food_items = FoodItem.objects.filter(name__icontains=search_query)
     else:
-        # List all food items if no search query provided
         food_items = FoodItem.objects.all()
 
     serializer = FoodItemSerializer(food_items, many=True)
@@ -141,3 +140,18 @@ def isFoodItemSaved(request, food_item_id):
 
     is_saved = SavedFoodItem.objects.filter(user=request.user, food_item=food_item).exists()
     return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def foodItemSuggestions(request):
+    query = request.query_params.get('name', None)
+
+    if not query:
+        return Response({"errors": ["No query parameter provided"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    matching_food_items = FoodItem.objects.filter(
+        name__icontains=query
+    ).values_list('name', flat=True)
+
+    return Response({"suggestions": list(matching_food_items)}, status=status.HTTP_200_OK)
