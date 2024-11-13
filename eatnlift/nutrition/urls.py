@@ -10,9 +10,9 @@ urlpatterns = [
     path('foodItems/<int:id>/edit', views.editFoodItem),
     path('foodItems/<int:id>/delete', views.deleteFoodItem),
 
-    path('food-items/<int:food_item_id>/save/', views.saveFoodItem),
-    path('food-items/<int:food_item_id>/unsave/', views.unsaveFoodItem),
-    path('foodItems/<int:food_item_id>/isSaved/', views.isFoodItemSaved),
+    path('foodItems/<int:food_item_id>/save', views.saveFoodItem),
+    path('foodItems/<int:food_item_id>/unsave', views.unsaveFoodItem),
+    path('foodItems/<int:food_item_id>/isSaved', views.isFoodItemSaved),
 
     path('foodItems/suggestions/', views.foodItemSuggestions),
 ]

@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import FoodItem
+from .models import FoodItem, SavedFoodItem
 from .serializers import FoodItemSerializer
 
 
@@ -117,7 +117,7 @@ def saveFoodItem(request, food_item_id):
         return Response({"message": "Ja has desat aquest aliment"}, status=status.HTTP_200_OK)
 
 
-@api_view(['DELETE'])
+@api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def unsaveFoodItem(request, food_item_id):
