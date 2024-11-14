@@ -25,3 +25,33 @@ class SavedFoodItem(models.Model):
 
     class Meta:
         unique_together = ('user', 'food_item')
+
+
+class Recipe(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    photo = models.URLField(blank=True, null=True)
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    food_items = models.ManyToManyField('FoodItem', through='RecipeFoodItem', related_name='recipes')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'creator'], name='unique_recipe_per_creator')
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class RecipeFoodItem(models.Model):
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='recipe_food_items')
+    food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE, related_name='recipe_food_items')
+    grams = models.FloatField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['recipe', 'food_item'], name='unique_food_in_recipe')
+        ]
+
+    def __str__(self):
+        return f"{self.food_item.name} in {self.recipe.name} ({self.grams}g)"

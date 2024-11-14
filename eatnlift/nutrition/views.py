@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import FoodItem, SavedFoodItem
-from .serializers import FoodItemSerializer
+from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem
+from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer
 
 
 # FoodItems section
@@ -155,3 +155,56 @@ def foodItemSuggestions(request):
     ).values_list('name', flat=True)
 
     return Response({"suggestions": list(matching_food_items)}, status=status.HTTP_200_OK)
+
+
+
+# Recipes section
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def createRecipe(request):
+    data = request.data
+    food_items_data = data.pop('food_items', [])
+    creator = request.user
+
+    if Recipe.objects.filter(name=data.get('name'), creator=creator).exists():
+        return Response(
+            {"errors": ["Ja has creat una recepta amb aquest nom"]}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = RecipeSerializer(data=data, context={'request': request})
+
+    if serializer.is_valid():
+        recipe = serializer.save(creator=creator)
+
+        for item in food_items_data:
+            food_item_id = item.get('food_item')
+            grams = item.get('grams')
+            try:
+                food_item = FoodItem.objects.get(id=food_item_id)
+                RecipeFoodItem.objects.create(recipe=recipe, food_item=food_item, grams=grams)
+            except FoodItem.DoesNotExist:
+                return Response(
+                    {"errors": [f"Food item with id {food_item_id} does not exist."]}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        return Response(RecipeSerializer(recipe).data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def listRecipes(request):
+    search_query = request.query_params.get('name', None)
+
+    if search_query:
+        recipes = Recipe.objects.filter(name__icontains=search_query, creator=request.user)
+    else:
+        recipes = Recipe.objects.filter(creator=request.user)
+
+    serializer = RecipeSerializer(recipes, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)

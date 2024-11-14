@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    #   Food items
     path('foodItems/', views.listFoodItems),
 
     path('foodItems/create', views.createFoodItem),
@@ -15,4 +16,12 @@ urlpatterns = [
     path('foodItems/<int:food_item_id>/isSaved', views.isFoodItemSaved),
 
     path('foodItems/suggestions/', views.foodItemSuggestions),
+
+
+    # Recipes
+    path('recipes/', views.listRecipes),
+    
+    path('recipes/create', views.createRecipe),
+
+
 ]
