@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem
+from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe
 from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer
 
 
@@ -181,10 +181,10 @@ def createRecipe(request):
 
         for item in food_items_data:
             food_item_id = item.get('food_item')
-            grams = item.get('grams')
+            quantitiy = item.get('quantity')
             try:
                 food_item = FoodItem.objects.get(id=food_item_id)
-                RecipeFoodItem.objects.create(recipe=recipe, food_item=food_item, grams=grams)
+                RecipeFoodItem.objects.create(recipe=recipe, food_item=food_item, quantity=quantity)
             except FoodItem.DoesNotExist:
                 return Response(
                     {"errors": [f"Food item with id {food_item_id} does not exist."]}, 
@@ -194,6 +194,39 @@ def createRecipe(request):
         return Response(RecipeSerializer(recipe).data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def editRecipe(request, id):
+    try:
+        recipe = Recipe.objects.get(id=id, creator=request.user)
+    except Recipe.DoesNotExist:
+        return Response({"errors": ["Aquesta recepta no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+    recipe_food_items_data = request.data.pop('food_items', [])
+    
+    serializer = RecipeSerializer(recipe, data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer.save()
+
+    RecipeFoodItem.objects.filter(recipe=recipe).delete()
+    for item_data in recipe_food_items_data:
+        try:
+            food_item = FoodItem.objects.get(id=item_data['food_item'])
+        except FoodItem.DoesNotExist:
+            return Response({"errors": [f"Food item with id {item_data['food_item']} does not exist"]},
+                            status=status.HTTP_400_BAD_REQUEST)
+        RecipeFoodItem.objects.create(
+            recipe=recipe,
+            food_item=food_item,
+            quantity=item_data.get('quantity', 0)
+        )
+
+    # Return the updated recipe data
+    return Response(RecipeSerializer(recipe).data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -208,3 +241,58 @@ def listRecipes(request):
 
     serializer = RecipeSerializer(recipes, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getRecipe(request, id):
+    try:
+        # Retrieve the recipe by ID
+        recipe = Recipe.objects.get(id=id)
+    except Recipe.DoesNotExist:
+        return Response({"errors": ["Recipe does not exist or you do not have access"]}, status=status.HTTP_404_NOT_FOUND)
+
+    # Serialize the recipe including related food items
+    serializer = RecipeSerializer(recipe)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def saveRecipe(request, recipe_id):
+    try:
+        recipe = Recipe.objects.get(id=recipe_id)
+    except Recipe.DoesNotExist:
+        return Response({"errors": ["La recepta no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+    saved_recipe, created = SavedRecipe.objects.get_or_create(user=request.user, recipe=recipe)
+
+    if created:
+        return Response({"message": "Recepta desada correctament"}, status=status.HTTP_201_CREATED)
+    else:
+        return Response({"message": "Ja has desat aquesta recepta"}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def unsaveRecipe(request, recipe_id):
+    try:
+        saved_recipe = SavedRecipe.objects.get(user=request.user, recipe_id=recipe_id)
+    except SavedRecipe.DoesNotExist:
+        return Response({"errors": ["No has desat aquesta recepta"]}, status=status.HTTP_404_NOT_FOUND)
+
+    saved_recipe.delete()
+    return Response({"message": "Recepta eliminada de la llista de desats"}, status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def isRecipeSaved(request, recipe_id):
+    try:
+        recipe = Recipe.objects.get(id=recipe_id)
+    except RecipeItem.DoesNotExist:
+        return Response({"errors": ["Recipe item does not exist."]}, status=status.HTTP_404_NOT_FOUND)
+
+    is_saved = SavedRecipe.objects.filter(user=request.user, recipe=recipe).exists()
+    return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)

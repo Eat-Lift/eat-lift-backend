@@ -30,7 +30,7 @@ class SavedFoodItem(models.Model):
 class Recipe(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    photo = models.URLField(blank=True, null=True)
+    picture = models.URLField(default="https://firebasestorage.googleapis.com/v0/b/eatnlift-d2f8e.firebasestorage.app/o/uploads%2Frecipes%2Frecipe-default-image.png?alt=media&token=d8274913-c9a8-47a8-b4c5-9791190e774f", blank=True)
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     food_items = models.ManyToManyField('FoodItem', through='RecipeFoodItem', related_name='recipes')
 
@@ -46,7 +46,7 @@ class Recipe(models.Model):
 class RecipeFoodItem(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='recipe_food_items')
     food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE, related_name='recipe_food_items')
-    grams = models.FloatField()
+    quantity = models.FloatField()
 
     class Meta:
         constraints = [
@@ -54,4 +54,12 @@ class RecipeFoodItem(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.food_item.name} in {self.recipe.name} ({self.grams}g)"
+        return f"{self.food_item.name} in {self.recipe.name} ({self.quantity}g)"
+
+class SavedRecipe(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_recipes")
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="saved_by_users")
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'recipe')

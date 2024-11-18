@@ -20,8 +20,14 @@ urlpatterns = [
 
     # Recipes
     path('recipes/', views.listRecipes),
+    path('recipes/<int:id>', views.getRecipe),
     
     path('recipes/create', views.createRecipe),
+    path('recipes/<int:id>/edit', views.editRecipe),
+
+    path('recipes/<int:recipe_id>/save', views.saveRecipe),
+    path('recipes/<int:recipe_id>/unsave', views.unsaveRecipe),
+    path('recipes/<int:recipe_id>/isSaved', views.isRecipeSaved),
 
 
 ]
