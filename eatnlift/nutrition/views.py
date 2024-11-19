@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe
-from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer
+from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan
+from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer, RecipieNutritionalPlanSerializer, NutritionalPlanSerializer, CreateRecipieNutritionalPlanSerializer
 
 
 # FoodItems section
@@ -301,3 +301,69 @@ def isRecipeSaved(request, recipe_id):
 
     is_saved = SavedRecipe.objects.filter(user=request.user, recipe=recipe).exists()
     return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
+
+
+# Nutritional plan
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getNutritionalPlan(request, user_id):
+
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no es el teu pla nutricional"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    plans = NutritionalPlan.objects.filter(user_id=user_id)
+    
+    if not plans.exists():
+        return Response(
+            {"errors": ["No s'ha trobat un pla nutricional per aquest usuari"]},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    serializer = NutritionalPlanSerializer(plans, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def editNutritionalPlan(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no es el teu pla nutricional"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    nutritional_plan, created = NutritionalPlan.objects.get_or_create(user_id=user_id)
+
+    if not created:
+        nutritional_plan.nutritional_plan_recipes.all().delete()
+
+    recipes_data = request.data.get('recipes', [])
+    for recipe_data in recipes_data:
+        recipe_id = recipe_data.get('recipe_id')
+        meal_type = recipe_data.get('meal_type')
+
+        if not recipe_id or not meal_type:
+            return Response(
+                {"errors": ["Falten dades en la recepta"]},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        recipe_serializer = CreateRecipieNutritionalPlanSerializer(data={
+            "nutritional_plan": nutritional_plan.id,
+            "recipe": recipe_id,
+            "meal_type": meal_type
+        })
+        if recipe_serializer.is_valid():
+            recipe_serializer.save()
+        else:
+            return Response(recipe_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = NutritionalPlanSerializer(nutritional_plan)
+    return Response(serializer.data, status=status.HTTP_200_OK)

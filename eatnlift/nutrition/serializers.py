@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe
+from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan
 
 class FoodItemSerializer(serializers.ModelSerializer):
     creator = serializers.ReadOnlyField(source='creator.id')
@@ -45,5 +45,30 @@ class SavedRecipeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SavedRecipe
-        fields = ['id', 'recipe', 'saved_at']
+        fields = ['id', 'recipe']
+
+class RecipieNutritionalPlanSerializer(serializers.ModelSerializer):
+    recipe_name = serializers.CharField(source='recipe.name', read_only=True)
+    recipe_id = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all(), source='recipe')
+
+    class Meta:
+        model = RecipieNutritionalPlan
+        fields = ['id', 'nutritional_plan', 'recipe_id', 'recipe_name', 'meal_type']
+
+
+class NutritionalPlanSerializer(serializers.ModelSerializer):
+    recipes = RecipieNutritionalPlanSerializer(
+        many=True, source='nutritional_plan_recipes', read_only=True
+    )
+
+    class Meta:
+        model = NutritionalPlan
+        fields = ['id', 'user', 'recipes']
+
+class CreateRecipieNutritionalPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecipieNutritionalPlan
+        fields = ['id', 'nutritional_plan', 'recipe', 'meal_type']
+
+
 

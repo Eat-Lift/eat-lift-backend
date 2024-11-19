@@ -59,7 +59,23 @@ class RecipeFoodItem(models.Model):
 class SavedRecipe(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_recipes")
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="saved_by_users")
-    saved_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('user', 'recipe')
+
+class Meal(models.TextChoices):
+    BREAKFAST = 'Esmorzar'
+    LUNCH = 'DINAR'
+    SNACK = 'BERENAR'
+    DINNER = 'SOPAR'
+
+class NutritionalPlan(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="nutritional_plan")
+
+class RecipieNutritionalPlan(models.Model):
+    nutritional_plan = models.ForeignKey(NutritionalPlan, on_delete=models.CASCADE, related_name="nutritional_plan_recipes")
+    recipe = models.ForeignKey('Recipe', on_delete=models.CASCADE, related_name="meal_recipes")
+    meal_type = models.CharField(max_length=20, choices=Meal.choices)
+
+    class Meta:
+        unique_together = ('nutritional_plan', 'meal_type', 'recipe')
