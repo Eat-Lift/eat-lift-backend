@@ -23,6 +23,8 @@ urlpatterns = [
     path('recipes/<int:id>', views.getRecipe),
     
     path('recipes/create', views.createRecipe),
+
+    path('recipes/<int:id>/delete', views.deleteRecipe),
     path('recipes/<int:id>/edit', views.editRecipe),
 
     path('recipes/<int:recipe_id>/save', views.saveRecipe),

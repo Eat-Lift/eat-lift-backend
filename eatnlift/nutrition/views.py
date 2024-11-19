@@ -228,6 +228,17 @@ def editRecipe(request, id):
     # Return the updated recipe data
     return Response(RecipeSerializer(recipe).data, status=status.HTTP_200_OK)
 
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def deleteRecipe(request, id):
+    try:
+        recipe = Recipe.objects.get(id=id, creator=request.user)
+        recipe.delete()
+        return Response({"success": "Recepta eliminada amb èxit"}, status=status.HTTP_204_NO_CONTENT)
+    except Recipe.DoesNotExist:
+        return Response({"errors": ["Aquesta recepta no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
