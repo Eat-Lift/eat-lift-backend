@@ -38,6 +38,9 @@ def editFoodItem(request, id):
     serializer = FoodItemSerializer(food_item, data=request.data, partial=True)
     
     if serializer.is_valid():
+        if FoodItem.objects.filter(name=serializer.validated_data['name'], creator=request.user).exists():
+            return Response({"errors": ["Ja has creat un aliment amb aquest nom"]}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -141,21 +144,6 @@ def isFoodItemSaved(request, food_item_id):
     is_saved = SavedFoodItem.objects.filter(user=request.user, food_item=food_item).exists()
     return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
 
-@api_view(['GET'])
-@authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def foodItemSuggestions(request):
-    query = request.query_params.get('name', None)
-
-    if not query:
-        return Response({"errors": ["No query parameter provided"]}, status=status.HTTP_400_BAD_REQUEST)
-
-    matching_food_items = FoodItem.objects.filter(
-        name__icontains=query
-    ).values_list('name', flat=True)
-
-    return Response({"suggestions": list(matching_food_items)}, status=status.HTTP_200_OK)
-
 
 
 # Recipes section
@@ -173,6 +161,9 @@ def createRecipe(request):
             {"errors": ["Ja has creat una recepta amb aquest nom"]}, 
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+    if 'picture' not in data or not data['picture']:
+        data['picture'] = Recipe._meta.get_field('picture').default
 
     serializer = RecipeSerializer(data=data, context={'request': request})
 
@@ -181,7 +172,7 @@ def createRecipe(request):
 
         for item in food_items_data:
             food_item_id = item.get('food_item')
-            quantitiy = item.get('quantity')
+            quantity = item.get('quantity')
             try:
                 food_item = FoodItem.objects.get(id=food_item_id)
                 RecipeFoodItem.objects.create(recipe=recipe, food_item=food_item, quantity=quantity)
@@ -203,6 +194,12 @@ def editRecipe(request, id):
         recipe = Recipe.objects.get(id=id, creator=request.user)
     except Recipe.DoesNotExist:
         return Response({"errors": ["Aquesta recepta no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+    if Recipe.objects.filter(name=data.get('name'), creator=creator).exists():
+        return Response(
+            {"errors": ["Ja has creat una recepta amb aquest nom"]}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     recipe_food_items_data = request.data.pop('food_items', [])
     

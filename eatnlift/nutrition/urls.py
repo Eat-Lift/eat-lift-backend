@@ -15,8 +15,6 @@ urlpatterns = [
     path('foodItems/<int:food_item_id>/unsave', views.unsaveFoodItem),
     path('foodItems/<int:food_item_id>/isSaved', views.isFoodItemSaved),
 
-    path('foodItems/suggestions/', views.foodItemSuggestions),
-
 
     # Recipes
     path('recipes/', views.listRecipes),
