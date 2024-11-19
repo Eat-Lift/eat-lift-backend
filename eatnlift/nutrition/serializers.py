@@ -35,6 +35,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'picture', 'creator', 'recipe_food_items']
         read_only_fields = ['creator']
 
+class RecipeMinimalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = ['id', 'name']
+
 class SavedRecipeSerializer(serializers.ModelSerializer):
     recipe = RecipeSerializer(read_only=True)
     

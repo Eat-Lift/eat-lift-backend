@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe
-from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer
+from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer
 
 
 # FoodItems section
@@ -195,17 +195,14 @@ def editRecipe(request, id):
     except Recipe.DoesNotExist:
         return Response({"errors": ["Aquesta recepta no existeix"]}, status=status.HTTP_404_NOT_FOUND)
 
-    if Recipe.objects.filter(name=data.get('name'), creator=creator).exists():
-        return Response(
-            {"errors": ["Ja has creat una recepta amb aquest nom"]}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
     recipe_food_items_data = request.data.pop('food_items', [])
     
     serializer = RecipeSerializer(recipe, data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    if Recipe.objects.filter(name=serializer.validated_data['name'], creator=request.user).exists():
+            return Response({"errors": ["Ja has creat una recepta amb aquest nom"]}, status=status.HTTP_400_BAD_REQUEST)
 
     serializer.save()
 
@@ -247,7 +244,7 @@ def listRecipes(request):
     else:
         recipes = Recipe.objects.filter(creator=request.user)
 
-    serializer = RecipeSerializer(recipes, many=True)
+    serializer = RecipeMinimalSerializer(recipes, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
