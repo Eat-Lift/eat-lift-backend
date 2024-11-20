@@ -64,7 +64,7 @@ class SavedRecipe(models.Model):
         unique_together = ('user', 'recipe')
 
 class Meal(models.TextChoices):
-    BREAKFAST = 'Esmorzar'
+    BREAKFAST = 'ESMORZAR'
     LUNCH = 'DINAR'
     SNACK = 'BERENAR'
     DINNER = 'SOPAR'
