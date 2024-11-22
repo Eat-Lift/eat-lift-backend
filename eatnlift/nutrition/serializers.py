@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan
+from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan, Meal, FoodItemMeal
 
 class FoodItemSerializer(serializers.ModelSerializer):
     creator = serializers.ReadOnlyField(source='creator.id')
@@ -69,6 +69,20 @@ class CreateRecipieNutritionalPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecipieNutritionalPlan
         fields = ['id', 'nutritional_plan', 'recipe', 'meal_type']
+
+class FoodItemMealSerializer(serializers.ModelSerializer):
+    food_item = FoodItemSerializer()
+
+    class Meta:
+        model = FoodItemMeal
+        fields = ['food_item', 'quantity']
+
+class MealSerializer(serializers.ModelSerializer):
+    food_items = FoodItemMealSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Meal
+        fields = ['id', 'user', 'meal_type', 'date', 'food_items']
 
 
 

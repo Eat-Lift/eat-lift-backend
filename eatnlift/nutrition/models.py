@@ -63,7 +63,7 @@ class SavedRecipe(models.Model):
     class Meta:
         unique_together = ('user', 'recipe')
 
-class Meal(models.TextChoices):
+class MealType(models.TextChoices):
     BREAKFAST = 'ESMORZAR'
     LUNCH = 'DINAR'
     SNACK = 'BERENAR'
@@ -75,7 +75,23 @@ class NutritionalPlan(models.Model):
 class RecipieNutritionalPlan(models.Model):
     nutritional_plan = models.ForeignKey(NutritionalPlan, on_delete=models.CASCADE, related_name="nutritional_plan_recipes")
     recipe = models.ForeignKey('Recipe', on_delete=models.CASCADE, related_name="meal_recipes")
-    meal_type = models.CharField(max_length=20, choices=Meal.choices)
+    meal_type = models.CharField(max_length=20, choices=MealType.choices)
 
     class Meta:
         unique_together = ('nutritional_plan', 'meal_type', 'recipe')
+
+class Meal(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="meal")
+    meal_type = models.CharField(max_length=20, choices=MealType.choices)
+    date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('user', 'meal_type', 'date')
+
+class FoodItemMeal(models.Model):
+    meal = models.ForeignKey(Meal, on_delete=models.CASCADE, related_name="food_items")
+    food_item = models.ForeignKey('FoodItem', on_delete=models.CASCADE, related_name="meal_food_items")
+    quantity = models.FloatField()
+
+    class Meta:
+        unique_together = ('meal', 'food_item')

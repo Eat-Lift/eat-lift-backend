@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan
-from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer, RecipieNutritionalPlanSerializer, NutritionalPlanSerializer, CreateRecipieNutritionalPlanSerializer
+from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan, FoodItemMeal, Meal
+from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer, RecipieNutritionalPlanSerializer, NutritionalPlanSerializer, CreateRecipieNutritionalPlanSerializer, MealSerializer, FoodItemMealSerializer
 
 
 # FoodItems section
@@ -303,7 +303,7 @@ def isRecipeSaved(request, recipe_id):
     return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
 
 
-# Nutritional plan
+# Nutritional plans
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -366,4 +366,87 @@ def editNutritionalPlan(request, user_id):
             return Response(recipe_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     serializer = NutritionalPlanSerializer(nutritional_plan)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# Meals
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def editMeal(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Extract meal data
+    meal_data = request.data
+    meal_type = meal_data.get('meal_type')
+    date = meal_data.get('date')
+    food_items = meal_data.get('food_items', [])  # Expecting a list of dictionaries with food_item_id and quantity
+
+    if not meal_type or not date:
+        return Response(
+            {"errors": ["Falten dades de l'àpat (meal_type o date)"]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not isinstance(food_items, list) or any('food_item_id' not in item or 'quantity' not in item for item in food_items):
+        return Response(
+            {"errors": ["Els elements de menjar han d'incloure 'food_item_id' i 'quantity'"]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Get or create the meal
+    meal, created = Meal.objects.get_or_create(
+        user_id=user_id, meal_type=meal_type, date=date
+    )
+
+    # Update food items
+    if not created:
+        meal.food_items.all().delete()
+    FoodItemMeal.objects.bulk_create([
+        FoodItemMeal(
+            meal=meal,
+            food_item_id=item['food_item_id'],
+            quantity=item['quantity']
+        )
+        for item in food_items
+    ])
+
+    # Serialize and return the meal
+    serializer = MealSerializer(meal)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getMeals(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu pla nutricional"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Extract date from the request body
+    date = request.data.get('date')
+    if not date:
+        return Response(
+            {"errors": ["La data és obligatòria"]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Filter meals by the provided date
+    meals = Meal.objects.filter(user_id=user_id, date=date).prefetch_related('food_items__food_item')
+
+    if not meals.exists():
+        return Response(
+            {"errors": ["No hi ha àpats en aquesta data"]},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Serialize and return the meals
+    serializer = MealSerializer(meals, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)

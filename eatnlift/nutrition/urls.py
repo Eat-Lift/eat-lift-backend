@@ -29,9 +29,12 @@ urlpatterns = [
     path('recipes/<int:recipe_id>/unsave', views.unsaveRecipe),
     path('recipes/<int:recipe_id>/isSaved', views.isRecipeSaved),
 
-    # Nutritional plan
+    # Nutritional plans
     path('nutritionalPlans/<int:user_id>', views.getNutritionalPlan),
     path('nutritionalPlans/<int:user_id>/edit', views.editNutritionalPlan),
 
+    # Meals
+    path('meals/<int:user_id>', views.getMeals),
+    path('meals/<int:user_id>/edit', views.editMeal),
 
 ]
