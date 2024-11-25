@@ -377,7 +377,7 @@ def editNutritionalPlan(request, user_id):
 def editMeal(request, user_id):
     if request.user.id != user_id:
         return Response(
-            {"errors": ["Aquest no és el usuari"]},
+            {"errors": ["Aquest no és el teu usuari"]},
             status=status.HTTP_403_FORBIDDEN
         )
 
@@ -426,7 +426,7 @@ def editMeal(request, user_id):
 def getMeals(request, user_id):
     if request.user.id != user_id:
         return Response(
-            {"errors": ["Aquest no és el teu pla nutricional"]},
+            {"errors": ["Aquest no és el teu usuari"]},
             status=status.HTTP_403_FORBIDDEN
         )
 
@@ -450,3 +450,16 @@ def getMeals(request, user_id):
     # Serialize and return the meals
     serializer = MealSerializer(meals, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getMealDates(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    meal_dates = Meal.objects.filter(user=user_id).values_list('date', flat=True).distinct()
+    return Response(meal_dates, status=status.HTTP_200_OK)

@@ -35,6 +35,7 @@ urlpatterns = [
 
     # Meals
     path('meals/<int:user_id>', views.getMeals),
+    path('meals/<int:user_id>/dates', views.getMealDates),
     path('meals/<int:user_id>/edit', views.editMeal),
 
 ]
