@@ -38,4 +38,10 @@ urlpatterns = [
     path('meals/<int:user_id>/dates', views.getMealDates),
     path('meals/<int:user_id>/edit', views.editMeal),
 
+    #Checks
+    path('checks/<int:user_id>', views.getCheck),
+    path('checks/<int:user_id>/dates', views.getCheckDates),
+    path('checks/<int:user_id>/create', views.createCheck),
+    path('checks/<int:user_id>/summary', views.getChecksSummary),
+
 ]

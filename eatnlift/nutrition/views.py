@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan, FoodItemMeal, Meal
-from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer, RecipieNutritionalPlanSerializer, NutritionalPlanSerializer, CreateRecipieNutritionalPlanSerializer, MealSerializer, FoodItemMealSerializer
+from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan, FoodItemMeal, Meal, Check
+from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer, RecipieNutritionalPlanSerializer, NutritionalPlanSerializer, CreateRecipieNutritionalPlanSerializer, MealSerializer, FoodItemMealSerializer, CheckSerializer
 
 
 # FoodItems section
@@ -463,3 +463,106 @@ def getMealDates(request, user_id):
 
     meal_dates = Meal.objects.filter(user=user_id).values_list('date', flat=True).distinct()
     return Response(meal_dates, status=status.HTTP_200_OK)
+
+# Checks
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def createCheck(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    check_data = request.data
+    date = check_data.get('date')
+
+    if not date:
+        return Response(
+            {"errors": ["Falta la data"]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    check, _ = Check.objects.get_or_create(user_id=user_id, date=date)
+
+    all_fields = [field.name for field in Check._meta.get_fields() if field.name not in ('id', 'user')]
+
+    for field in all_fields:
+        if field not in check_data:
+            setattr(check, field, None)
+
+    serializer = CheckSerializer(instance=check, data=check_data, partial=True)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getCheck(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    date = request.query_params.get('date', None)
+
+    try:
+        if date:
+            check = Check.objects.get(user_id=user_id, date=date)
+        else:
+            check = Check.objects.filter(user_id=user_id).latest('date')
+
+        serializer = CheckSerializer(check)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Check.DoesNotExist:
+        return Response(
+            {"errors": ["Cap registre trobat per a aquest usuari i data."]},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getCheckDates(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    dates = Check.objects.filter(user_id=user_id).values_list('date', flat=True).distinct()
+
+    if not dates:
+        return Response(
+            {"errors": ["No hi ha dates registrades per a aquest usuari."]},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    return Response(list(dates), status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getChecksSummary(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    checks = Check.objects.filter(user_id=user_id).values('date', 'bodyfat', 'weight')
+
+    if not checks:
+        return Response(
+            {"errors": ["No s'han trobat registres per a aquest usuari."]},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    return Response(list(checks), status=status.HTTP_200_OK)
