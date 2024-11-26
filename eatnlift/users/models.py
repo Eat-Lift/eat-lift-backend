@@ -64,3 +64,21 @@ class PasswordResetCode(models.Model):
 
     def is_valid(self):
         return timezone.now() < self.expiration
+
+class Check(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="checks")
+    date = models.DateField(null=True, blank=True)
+    weight = models.FloatField(null=True, blank=True)
+    bodyfat = models.FloatField(null=True, blank=True)
+    neck = models.FloatField(null=True, blank=True)
+    shoulders = models.FloatField(null=True, blank=True)
+    arm = models.FloatField(null=True, blank=True)
+    chest = models.FloatField(null=True, blank=True)
+    waist = models.FloatField(null=True, blank=True)
+    hip = models.FloatField(null=True, blank=True)
+    thigh = models.FloatField(null=True, blank=True)
+    calves = models.FloatField(null=True, blank=True)
+
+
+    class Meta:
+        unique_together = ('user', 'date')

@@ -11,4 +11,10 @@ urlpatterns = [
     path('<int:id>/editProfile', views.editProfile),
     path('reset_password', views.resetPassword),
     path('new_password', views.newPassword),
+
+        #Checks
+    path('checks/<int:user_id>', views.getCheck),
+    path('checks/<int:user_id>/dates', views.getCheckDates),
+    path('checks/<int:user_id>/create', views.createCheck),
+    path('checks/<int:user_id>/summary', views.getChecksSummary),
 ]
