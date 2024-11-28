@@ -77,7 +77,7 @@ class Check(models.Model):
     waist = models.FloatField(null=True, blank=True)
     hip = models.FloatField(null=True, blank=True)
     thigh = models.FloatField(null=True, blank=True)
-    calves = models.FloatField(null=True, blank=True)
+    calf = models.FloatField(null=True, blank=True)
 
 
     class Meta:

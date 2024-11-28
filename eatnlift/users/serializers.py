@@ -17,4 +17,4 @@ class CheckSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Check
-        fields = ['user_id', 'date', 'weight', 'bodyfat', 'neck', 'shoulders', 'arm', 'chest', 'waist', 'hip', 'thigh', 'calves']
+        fields = ['user_id', 'date', 'weight', 'bodyfat', 'neck', 'shoulders', 'arm', 'chest', 'waist', 'hip', 'thigh', 'calf']

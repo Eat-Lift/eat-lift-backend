@@ -307,7 +307,7 @@ def createCheck(request, user_id):
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET'])
+@api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def getCheck(request, user_id):
@@ -317,13 +317,17 @@ def getCheck(request, user_id):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    date = request.query_params.get('date', None)
+    date = request.data.get('date', None)
+    print(date)
 
     try:
         if date:
             check = Check.objects.get(user_id=user_id, date=date)
         else:
-            check = Check.objects.filter(user_id=user_id).latest('date')
+            return Response(
+                {"errors": ["Cap registre trobat per a aquest usuari i data."]},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         serializer = CheckSerializer(check)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -363,7 +367,7 @@ def getChecksSummary(request, user_id):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    checks = Check.objects.filter(user_id=user_id).values('date', 'bodyfat', 'weight')
+    checks = Check.objects.filter(user_id=user_id).order_by('date').values('date', 'bodyfat', 'weight')
 
     if not checks:
         return Response(
