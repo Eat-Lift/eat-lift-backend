@@ -38,9 +38,6 @@ def editFoodItem(request, id):
     serializer = FoodItemSerializer(food_item, data=request.data, partial=True)
     
     if serializer.is_valid():
-        if FoodItem.objects.filter(name=serializer.validated_data['name'], creator=request.user).exists():
-            return Response({"errors": ["Ja has creat un aliment amb aquest nom"]}, status=status.HTTP_400_BAD_REQUEST)
-
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -200,9 +197,6 @@ def editRecipe(request, id):
     serializer = RecipeSerializer(recipe, data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    if Recipe.objects.filter(name=serializer.validated_data['name'], creator=request.user).exists():
-            return Response({"errors": ["Ja has creat una recepta amb aquest nom"]}, status=status.HTTP_400_BAD_REQUEST)
 
     serializer.save()
 
