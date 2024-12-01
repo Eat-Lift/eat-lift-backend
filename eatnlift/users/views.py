@@ -82,6 +82,25 @@ def login(request):
 
     return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_200_OK)
 
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def signout(request):
+    try:
+        user = request.user
+        
+        user.delete()
+        
+        return Response(
+            {"message": "El teu compte s'ha esborrat correctament."},
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        return Response(
+            {"errors": ["No s'ha pogut esborrar el compte. Intenta-ho més tard."]},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 @api_view(['POST'])
 def googleLogin(request):
     google_token = request.data.get('google_token')

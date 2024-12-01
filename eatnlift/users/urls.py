@@ -5,6 +5,7 @@ urlpatterns = [
     path('login', views.login),
     path('login/google', views.googleLogin),
     path('signin', views.signin),
+    path('signout', views.signout),
     path('<int:id>', views.get),
     path('<int:id>/editPersonalInformation', views.editPersonalInformation),
     path('<int:id>/getPersonalInformation', views.getPersonalInformation),

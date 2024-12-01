@@ -5,7 +5,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from .models import FoodItem, SavedFoodItem, Recipe, RecipeFoodItem, SavedRecipe, NutritionalPlan, RecipieNutritionalPlan, FoodItemMeal, Meal
 from .serializers import FoodItemSerializer, RecipeSerializer, RecipeFoodItemSerializer, RecipeMinimalSerializer, RecipieNutritionalPlanSerializer, NutritionalPlanSerializer, CreateRecipieNutritionalPlanSerializer, MealSerializer, FoodItemMealSerializer
-
+from django.db.models import Count, Q
 
 # FoodItems section
 
@@ -61,12 +61,19 @@ def deleteFoodItem(request, id):
 @permission_classes([IsAuthenticated])
 def listFoodItems(request):
     search_query = request.query_params.get('name', None)
+    user = request.user
 
     if search_query:
-        food_items = FoodItem.objects.filter(name__icontains=search_query)
+        food_items = FoodItem.objects.filter(name__icontains=search_query).annotate(
+            usage_count=Count('meal_food_items', filter=Q(meal_food_items__meal__user=user))
+        ).order_by('-usage_count', 'name')
     else:
-        food_items = FoodItem.objects.all()
-
+        food_items = FoodItem.objects.filter(
+            meal_food_items__meal__user=user
+        ).annotate(
+            usage_count=Count('meal_food_items', filter=Q(meal_food_items__meal__user=user))
+        ).order_by('-usage_count', 'name')
+        
     serializer = FoodItemSerializer(food_items, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -246,12 +253,10 @@ def listRecipes(request):
 @permission_classes([IsAuthenticated])
 def getRecipe(request, id):
     try:
-        # Retrieve the recipe by ID
         recipe = Recipe.objects.get(id=id)
     except Recipe.DoesNotExist:
         return Response({"errors": ["Recipe does not exist or you do not have access"]}, status=status.HTTP_404_NOT_FOUND)
 
-    # Serialize the recipe including related food items
     serializer = RecipeSerializer(recipe)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -375,11 +380,10 @@ def editMeal(request, user_id):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    # Extract meal data
     meal_data = request.data
     meal_type = meal_data.get('meal_type')
     date = meal_data.get('date')
-    food_items = meal_data.get('food_items', [])  # Expecting a list of dictionaries with food_item_id and quantity
+    food_items = meal_data.get('food_items', [])
 
     if not meal_type or not date:
         return Response(
@@ -393,12 +397,10 @@ def editMeal(request, user_id):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Get or create the meal
     meal, created = Meal.objects.get_or_create(
         user_id=user_id, meal_type=meal_type, date=date
     )
 
-    # Update food items
     if not created:
         meal.food_items.all().delete()
     FoodItemMeal.objects.bulk_create([
@@ -410,7 +412,6 @@ def editMeal(request, user_id):
         for item in food_items
     ])
 
-    # Serialize and return the meal
     serializer = MealSerializer(meal)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -424,7 +425,6 @@ def getMeals(request, user_id):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    # Extract date from the request body
     date = request.data.get('date')
     if not date:
         return Response(
@@ -432,7 +432,6 @@ def getMeals(request, user_id):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Filter meals by the provided date
     meals = Meal.objects.filter(user_id=user_id, date=date).prefetch_related('food_items__food_item')
 
     if not meals.exists():
@@ -441,7 +440,6 @@ def getMeals(request, user_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    # Serialize and return the meals
     serializer = MealSerializer(meals, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
