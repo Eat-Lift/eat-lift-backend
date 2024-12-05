@@ -5,6 +5,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise
 from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkoutSerializer
+from django.shortcuts import get_object_or_404
 
 # Exercises
 @api_view(['POST'])
@@ -13,6 +14,8 @@ from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkou
 def createExercise(request):
     data = request.data
     data['user'] = request.user.id
+    if 'picture' not in data or not data['picture']:
+        data['picture'] = Exercise._meta.get_field('picture').default
     serializer = ExerciseSerializer(data=data)
 
     if serializer.is_valid():
@@ -21,6 +24,8 @@ def createExercise(request):
                 {"errors": ["Ja has creat un exercici amb aquest nom"]},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        
         
         serializer.save(user=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -31,8 +36,16 @@ def createExercise(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def listExercises(request):
-    exercises = Exercise.objects.filter(user=request.user)
-    serializer = ExerciseSerializer(exercises, many=True)
+    search_query = request.query_params.get('name', '')
+    exercises = Exercise.objects.filter(user=request.user, name__icontains=search_query).values('id', 'name')
+    return Response(list(exercises), status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getExercise(request, id):
+    exercise = get_object_or_404(Exercise, id=id, user=request.user)
+    serializer = ExerciseSerializer(exercise)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['PUT'])

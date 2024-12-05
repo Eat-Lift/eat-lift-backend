@@ -3,10 +3,11 @@ from . import views
 
 urlpatterns = [
     #   Exercises
-    path('exercises', views.listExercises),
+    path('exercises/', views.listExercises),
 
     path('exercises/create', views.createExercise),
 
+    path('exercises/<int:id>', views.getExercise),
     path('exercises/<int:id>/edit', views.editExercise),
     path('exercises/<int:id>/delete', views.deleteExercise),
 
