@@ -220,7 +220,6 @@ def editRecipe(request, id):
             quantity=item_data.get('quantity', 0)
         )
 
-    # Return the updated recipe data
     return Response(RecipeSerializer(recipe).data, status=status.HTTP_200_OK)
 
 @api_view(['DELETE'])

@@ -23,7 +23,7 @@ class Muscles(models.TextChoices):
 class Exercise(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    picture = models.URLField(default="https://firebasestorage.googleapis.com/v0/b/eatnlift-d2f8e.firebasestorage.app/o/uploads%2Frecipes%2Frecipe-default-image.png?alt=media&token=d8274913-c9a8-47a8-b4c5-9791190e774f", blank=True)
+    picture = models.URLField(default="https://firebasestorage.googleapis.com/v0/b/eatnlift-d2f8e.firebasestorage.app/o/uploads%2Fexercises%2Fdefault_exercise.png?alt=media&token=22eed71d-9497-4e51-98af-ce46845b0615", blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     trained_muscles = models.JSONField(default=list, blank=True)
     
@@ -52,3 +52,10 @@ class Workout(models.Model):
 class ExerciseInWorkout(models.Model):
     workout = models.ForeignKey('Workout', on_delete=models.CASCADE, related_name='exercises')
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
+
+class SavedWorkout(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_workouts")
+    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, related_name="saved_by_users")
+
+    class Meta:
+        unique_together = ('user', 'workout')

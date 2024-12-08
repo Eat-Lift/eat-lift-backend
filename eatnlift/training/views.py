@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise
+from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise, SavedWorkout
 from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkoutSerializer
 from django.shortcuts import get_object_or_404
 
@@ -57,8 +57,13 @@ def editExercise(request, id):
     except Exercise.DoesNotExist:
         return Response({"errors": ["Aquest exercici no existeix"]}, status=status.HTTP_404_NOT_FOUND)
     
-    serializer = ExerciseSerializer(exercise, data=request.data, partial=True)
+    data = request.data.copy()
+
+    if 'picture' not in data or not data['picture']:
+        data['picture'] = Exercise._meta.get_field('picture').default
     
+    serializer = ExerciseSerializer(exercise, data=data, partial=True)
+
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -117,4 +122,133 @@ def isExerciseSaved(request, exercise_id):
     is_saved = SavedExercise.objects.filter(user=request.user, exercise=exercise).exists()
     return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
 
+
+# Workouts
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def createWorkout(request):
+    data = request.data
+    exercises_data = data.pop('exercises', [])
+    user = request.user
+
+    if Workout.objects.filter(name=data.get('name'), user=user).exists():
+        return Response(
+            {"errors": ["Ja has creat un entrenament amb aquest nom"]}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = WorkoutSerializer(data=data, context={'request': request})
+
+    if serializer.is_valid():
+        workout = serializer.save(user=user)
+
+        for item in exercises_data:
+            try:
+                exercise = Exercise.objects.get(id=item)
+                ExerciseInWorkout.objects.create(workout=workout, exercise=exercise)
+            except Exercise.DoesNotExist:
+                return Response(
+                    {"errors": [f"Exercise with id {item} does not exist."]}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        return Response(WorkoutSerializer(workout).data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def editWorkout(request, id):
+    try:
+        workout = Workout.objects.get(id=id, user=request.user)
+    except Workout.DoesNotExist:
+        return Response({"errors": ["Aquest entrenament no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = WorkoutSerializer(workout, data=request.data, partial=True)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def deleteWorkout(request, id):
+    try:
+        workout = Workout.objects.get(id=id, user=request.user)
+        workout.delete()
+        return Response({"success": "Entrenament eliminat amb èxit"}, status=status.HTTP_204_NO_CONTENT)
+    except Workout.DoesNotExist:
+        return Response({"errors": ["Aquest entrenament no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def listWorkouts(request):
+    search_query = request.query_params.get('name', '')
+    workouts = Workout.objects.filter(user=request.user, name__icontains=search_query).values('id', 'name')
+    return Response(list(workouts), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getWorkout(request, id):
+    try:
+        workout = Workout.objects.get(id=id, user=request.user)
+    except Workout.DoesNotExist:
+        return Response({"errors": ["Entrenament no existeix o no tens accés"]}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = WorkoutSerializer(workout)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def saveWorkout(request, id):
+    try:
+        workout = Workout.objects.get(id=id)
+    except Workout.DoesNotExist:
+        return Response({"errors": ["L'entrenament no existeix"]}, status=status.HTTP_404_NOT_FOUND)
+
+    saved_workout, created = SavedWorkout.objects.get_or_create(user=request.user, workout=workout)
+
+    if created:
+        return Response({"message": "Entrenament desat correctament"}, status=status.HTTP_201_CREATED)
+    else:
+        return Response({"message": "Ja has desat aquest entrenament"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def unsaveWorkout(request, id):
+    try:
+        saved_workout = SavedWorkout.objects.get(user=request.user, workout_id=id)
+    except SavedWorkout.DoesNotExist:
+        return Response({"errors": ["No has desat aquest entrenament"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    saved_workout.delete()
+    return Response({"message": "Entrenament eliminat de la llista de desats"}, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def isWorkoutSaved(request, id):
+    try:
+        workout = Workout.objects.get(id=id)
+    except Workout.DoesNotExist:
+        return Response({"errors": ["L'entrenament no existeix."]}, status=status.HTTP_404_NOT_FOUND)
+
+    is_saved = SavedWorkout.objects.filter(user=request.user, workout=workout).exists()
+    return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
 
