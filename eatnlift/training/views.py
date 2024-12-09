@@ -58,10 +58,10 @@ def editExercise(request, id):
         return Response({"errors": ["Aquest exercici no existeix"]}, status=status.HTTP_404_NOT_FOUND)
     
     data = request.data.copy()
-
-    if 'picture' not in data or not data['picture']:
-        data['picture'] = Exercise._meta.get_field('picture').default
     
+    if 'picture' not in data or not data['picture']:
+        data['picture'] = exercise.picture
+
     serializer = ExerciseSerializer(exercise, data=data, partial=True)
 
     if serializer.is_valid():
@@ -162,6 +162,8 @@ def createWorkout(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def editWorkout(request, id):
+    exercises_data = request.data.pop('exercises', [])
+
     try:
         workout = Workout.objects.get(id=id, user=request.user)
     except Workout.DoesNotExist:
@@ -171,6 +173,18 @@ def editWorkout(request, id):
 
     if serializer.is_valid():
         serializer.save()
+
+        ExerciseInWorkout.objects.filter(workout=workout).delete()
+
+        for item in exercises_data:
+            try:
+                exercise = Exercise.objects.get(id=item)
+                ExerciseInWorkout.objects.create(workout=workout, exercise=exercise)
+            except Exercise.DoesNotExist:
+                return Response(
+                    {"errors": [f"Exercise with id {item} does not exist."]}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
