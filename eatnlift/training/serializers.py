@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Exercise, ExerciseInWorkout, Workout, Workout, Muscles
+from .models import Exercise, ExerciseInWorkout, Workout, Workout, Muscles, Routine, ExerciseInRoutine
 
 class ExerciseSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source='user.id')
@@ -27,4 +27,23 @@ class WorkoutSerializer(serializers.ModelSerializer):
         model = Workout
         fields = ['id', 'name', 'description', 'user', 'exercises']
 
+class ExerciseInRoutineSerializer(serializers.ModelSerializer):
+    exercise = ExerciseSerializer()
+
+    class Meta:
+        model = ExerciseInRoutine
+        fields = ['week_day', 'exercise']
+
+
+
+class RoutineSerializer(serializers.ModelSerializer):
+    exercises = ExerciseInRoutineSerializer(
+        many=True, 
+        source='exercises_in_routine', 
+        read_only=True
+    )
+
+    class Meta:
+        model = Routine
+        fields = ['user', 'exercises']
 

@@ -59,3 +59,25 @@ class SavedWorkout(models.Model):
 
     class Meta:
         unique_together = ('user', 'workout')
+
+# Routine
+
+class WeekDay(models.TextChoices):
+    DILLUNS = 'DILLUNS'
+    DIMARTS = 'DIMARTS'
+    DIMECRES = 'DIMECRES'
+    DIJOUS = 'DIJOUS'
+    DIVENDRES = 'DIVENDRES'
+    DISSABTE = 'DISSABTE'
+    DIUMENGE = 'DIUMENGE'
+
+class Routine(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="routine")
+
+class ExerciseInRoutine(models.Model):
+    routine = models.ForeignKey(Routine, on_delete=models.CASCADE, related_name="exercises_in_routine")
+    exercise = models.ForeignKey('Exercise', on_delete=models.CASCADE, related_name="exercise_routines")
+    week_day = models.CharField(max_length=20, choices=WeekDay.choices)
+
+    class Meta:
+        unique_together = ('routine', 'week_day', 'exercise')

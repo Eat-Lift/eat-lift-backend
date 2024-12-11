@@ -27,4 +27,8 @@ urlpatterns = [
     path('workouts/<int:id>/save', views.saveWorkout),
     path('workouts/<int:id>/unsave', views.unsaveWorkout),
     path('workouts/<int:id>/isSaved', views.isWorkoutSaved),
+
+    # Routines
+    path('routines/<int:user_id>', views.getRoutine),
+    path('routines/<int:user_id>/edit', views.editRoutine),
 ]

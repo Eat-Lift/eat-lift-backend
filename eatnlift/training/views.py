@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise, SavedWorkout
-from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkoutSerializer
+from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise, SavedWorkout, Routine, ExerciseInRoutine
+from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkoutSerializer, ExerciseInRoutineSerializer
 from django.shortcuts import get_object_or_404
 
 # Exercises
@@ -265,4 +265,100 @@ def isWorkoutSaved(request, id):
 
     is_saved = SavedWorkout.objects.filter(user=request.user, workout=workout).exists()
     return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
+
+# Routine
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def editRoutine(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["No tens permís per editar aquest entrenament"]}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    routine, created = Routine.objects.get_or_create(user_id=user_id)
+
+    exercises_data = request.data['exercises']
+
+    ExerciseInRoutine.objects.filter(routine=routine).delete()
+
+    if not exercises_data:
+        return Response(
+            {
+                "message": "Entrenament actualitzat correctament. Tots els exercicis han estat eliminats.",
+                "exercises": []
+            }, 
+            status=status.HTTP_200_OK
+        )
+
+    new_exercises = []
+    for exercise_data in exercises_data:
+        try:
+            exercise_id = exercise_data['id']
+            week_day = exercise_data['week_day']
+
+            exercise = Exercise.objects.get(id=exercise_id)
+            new_exercise = ExerciseInRoutine(
+                routine=routine,
+                exercise=exercise,
+                week_day=week_day,
+            )
+            new_exercises.append(new_exercise)
+        except Exercise.DoesNotExist:
+            return Response(
+                {"errors": [f"L'exercici amb ID {exercise_id} no existeix"]}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except KeyError as e:
+            return Response(
+                {"errors": [f"Falta el camp {str(e)} a l'exercici"]}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    ExerciseInRoutine.objects.bulk_create(new_exercises)
+
+    updated_exercises = ExerciseInRoutine.objects.filter(routine=routine)
+    serializer = ExerciseInRoutineSerializer(updated_exercises, many=True)
+
+    return Response(
+        {
+            "message": "Entrenament actualitzat correctament",
+            "exercises": serializer.data
+        }, 
+        status=status.HTTP_200_OK
+    )
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getRoutine(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["No tens permís per veure aquest entrenament"]}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        routine = Routine.objects.get(user_id=user_id)
+        exercises = ExerciseInRoutine.objects.filter(routine=routine)
+    except Routine.DoesNotExist:
+        return Response(
+            {
+                "message": "Entrenament recuperat correctament",
+                "exercises": []
+            }, 
+            status=status.HTTP_200_OK
+        )
+
+    serializer = ExerciseInRoutineSerializer(exercises, many=True)
+
+    return Response(
+        {
+            "message": "Entrenament recuperat correctament",
+            "exercises": serializer.data
+        }, 
+        status=status.HTTP_200_OK
+    )
+
 
