@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator
 
 class Muscles(models.TextChoices):
     PECTORAL = "Pectoral"
@@ -19,6 +20,7 @@ class Muscles(models.TextChoices):
     PARAVERTEBRAL = "Paravertebral"
     ABDOMINALS = "Abdominals"
 
+# Exercises
 
 class Exercise(models.Model):
     name = models.CharField(max_length=255)
@@ -60,7 +62,7 @@ class SavedWorkout(models.Model):
     class Meta:
         unique_together = ('user', 'workout')
 
-# Routine
+# Routines
 
 class WeekDay(models.TextChoices):
     DILLUNS = 'DILLUNS'
@@ -81,3 +83,21 @@ class ExerciseInRoutine(models.Model):
 
     class Meta:
         unique_together = ('routine', 'week_day', 'exercise')
+
+# Sessions
+
+class Session(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sessions")
+    date = models.DateField()
+
+    class Meta:
+        unique_together = ('user', 'date')
+
+class SessionExercise(models.Model):
+    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name="exercises")
+    exercise = models.ForeignKey('Exercise', on_delete=models.CASCADE)
+
+class SessionSet(models.Model):
+    session_exercise = models.ForeignKey(SessionExercise, on_delete=models.CASCADE, related_name="sets")
+    weight = models.FloatField(validators=[MinValueValidator(0.1)])
+    reps = models.PositiveIntegerField()

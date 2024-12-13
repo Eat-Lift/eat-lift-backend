@@ -31,4 +31,8 @@ urlpatterns = [
     # Routines
     path('routines/<int:user_id>', views.getRoutine),
     path('routines/<int:user_id>/edit', views.editRoutine),
+
+    # Sessions
+    path('sessions/<int:user_id>', views.getSession),
+    path('sessions/<int:user_id>/edit', views.editSession),
 ]

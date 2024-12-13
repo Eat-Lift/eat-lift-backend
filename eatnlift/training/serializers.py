@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Exercise, ExerciseInWorkout, Workout, Workout, Muscles, Routine, ExerciseInRoutine
+from .models import Exercise, ExerciseInWorkout, Workout, Workout, Muscles, Routine, ExerciseInRoutine, Session, SessionExercise, SessionSet
 
 class ExerciseSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source='user.id')
@@ -46,4 +46,29 @@ class RoutineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Routine
         fields = ['user', 'exercises']
+
+class SessionSetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SessionSet
+        fields = ['weight', 'reps']
+
+class BriefExerciseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exercise
+        fields = ['id', 'name']
+
+class SessionExerciseSerializer(serializers.ModelSerializer):
+    sets = SessionSetSerializer(many=True, read_only=True)
+    exercise = BriefExerciseSerializer(read_only=True)
+
+    class Meta:
+        model = SessionExercise
+        fields = ['exercise', 'sets']
+
+class SessionSerializer(serializers.ModelSerializer):
+    exercises = SessionExerciseSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Session
+        fields = ['user', 'date', 'exercises']
 

@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise, SavedWorkout, Routine, ExerciseInRoutine
-from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkoutSerializer, ExerciseInRoutineSerializer
+from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise, SavedWorkout, Routine, ExerciseInRoutine, Session, SessionExercise, SessionSet
+from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkoutSerializer, ExerciseInRoutineSerializer, SessionSerializer
 from django.shortcuts import get_object_or_404
 
 # Exercises
@@ -361,4 +361,75 @@ def getRoutine(request, user_id):
         status=status.HTTP_200_OK
     )
 
+# Sessions
 
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getSession(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    date = request.data.get('date')
+    if not date:
+        return Response({"errors": ["La data és un paràmetre obligatori"]},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+
+    try:
+        session = Session.objects.get(user_id=user_id, date=date)
+    except Session.DoesNotExist:
+        return Response({"user": user_id, "date": date, "exercises": []}, status=status.HTTP_200_OK)
+
+    serializer = SessionSerializer(session)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def editSession(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    data = request.data
+    date = request.data.get('date')
+    if not date:
+        return Response({"errors": ["La data és un camp obligatori."]},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    session, created = Session.objects.get_or_create(user_id=user_id, date=date)
+
+    SessionExercise.objects.filter(session=session).delete()
+
+    exercises_data = data.get('exercises', [])
+    for ex_data in exercises_data:
+        exercise_id = ex_data.get('exercise')
+        if exercise_id is None:
+            return Response({"errors": ["Cada exercici ha de tenir el camp 'exercise'."]},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            exercise_obj = Exercise.objects.get(pk=exercise_id)
+        except Exercise.DoesNotExist:
+            return Response({"errors": [f"L'exercici amb ID {exercise_id} no existeix"]},
+                            status=status.HTTP_404_NOT_FOUND)
+        
+        session_exercise = SessionExercise.objects.create(session=session, exercise=exercise_obj)
+
+        sets_data = ex_data.get('sets', [])
+        for s_data in sets_data:
+            weight = s_data.get('weight')
+            reps = s_data.get('reps')
+            if weight is None or reps is None:
+                return Response({"errors": ["Cada sèrie ha de tenir 'weight' i 'reps'."]},
+                                status=status.HTTP_400_BAD_REQUEST)
+            SessionSet.objects.create(session_exercise=session_exercise, weight=weight, reps=reps)
+
+    serializer = SessionSerializer(session)
+    return Response(serializer.data, status=status.HTTP_200_OK)
