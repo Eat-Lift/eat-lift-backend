@@ -35,4 +35,5 @@ urlpatterns = [
     # Sessions
     path('sessions/<int:user_id>', views.getSession),
     path('sessions/<int:user_id>/edit', views.editSession),
+    path('sessions/<int:user_id>/summary', views.getSessionDates),
 ]

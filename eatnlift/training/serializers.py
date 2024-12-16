@@ -12,6 +12,11 @@ class ExerciseSerializer(serializers.ModelSerializer):
         model = Exercise
         fields = ['id', 'name', 'description', 'picture', 'user', 'trained_muscles']
 
+class BriefExerciseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exercise
+        fields = ['id', 'name']
+
 class ExerciseInWorkoutSerializer(serializers.ModelSerializer):
     exercise = ExerciseSerializer()
 
@@ -28,7 +33,7 @@ class WorkoutSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'user', 'exercises']
 
 class ExerciseInRoutineSerializer(serializers.ModelSerializer):
-    exercise = ExerciseSerializer()
+    exercise = BriefExerciseSerializer(read_only=True)
 
     class Meta:
         model = ExerciseInRoutine
@@ -52,10 +57,6 @@ class SessionSetSerializer(serializers.ModelSerializer):
         model = SessionSet
         fields = ['weight', 'reps']
 
-class BriefExerciseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Exercise
-        fields = ['id', 'name']
 
 class SessionExerciseSerializer(serializers.ModelSerializer):
     sets = SessionSetSerializer(many=True, read_only=True)

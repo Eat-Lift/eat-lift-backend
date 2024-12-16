@@ -363,7 +363,7 @@ def getRoutine(request, user_id):
 
 # Sessions
 
-@api_view(['GET'])
+@api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def getSession(request, user_id):
@@ -433,3 +433,20 @@ def editSession(request, user_id):
 
     serializer = SessionSerializer(session)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET']) 
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getSessionDates(request, user_id): 
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    sessions_dates = Session.objects.filter(user_id=user_id).values_list('date', flat=True).order_by('date')
+
+    return Response(
+        {"sessions_dates": list(sessions_dates)},
+        status=status.HTTP_200_OK
+    )
