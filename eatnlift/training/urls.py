@@ -15,6 +15,8 @@ urlpatterns = [
     path('exercises/<int:exercise_id>/unsave', views.unsaveExercise),
     path('exercises/<int:exercise_id>/isSaved', views.isExerciseSaved),
 
+    path('exercises/<int:exercise_id>/weight', views.getLastSessionWeight),
+
     # Workouts
     path('workouts/', views.listWorkouts),
     
@@ -35,5 +37,5 @@ urlpatterns = [
     # Sessions
     path('sessions/<int:user_id>', views.getSession),
     path('sessions/<int:user_id>/edit', views.editSession),
-    path('sessions/<int:user_id>/summary', views.getSessionDates),
+    path('sessions/<int:user_id>/summary', views.getSessionsSummary),
 ]

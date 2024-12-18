@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from .models import Exercise, Workout, ExerciseInWorkout, Muscles, SavedExercise, SavedWorkout, Routine, ExerciseInRoutine, Session, SessionExercise, SessionSet
 from .serializers import ExerciseSerializer, WorkoutSerializer, ExerciseInWorkoutSerializer, ExerciseInRoutineSerializer, SessionSerializer
 from django.shortcuts import get_object_or_404
+from datetime import datetime
+from django.db.models import Count
 
 # Exercises
 @api_view(['POST'])
@@ -37,7 +39,13 @@ def createExercise(request):
 @permission_classes([IsAuthenticated])
 def listExercises(request):
     search_query = request.query_params.get('name', '')
-    exercises = Exercise.objects.filter(user=request.user, name__icontains=search_query).values('id', 'name')
+
+    exercises = Exercise.objects.filter(
+        user=request.user, name__icontains=search_query
+    ).annotate(
+        session_count=Count('sessionexercise')
+    ).order_by('-session_count').values('id', 'name', 'session_count')
+
     return Response(list(exercises), status=status.HTTP_200_OK)
 
 @api_view(['GET'])
@@ -122,6 +130,50 @@ def isExerciseSaved(request, exercise_id):
     is_saved = SavedExercise.objects.filter(user=request.user, exercise=exercise).exists()
     return Response({"is_saved": is_saved}, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getLastSessionWeight(request, exercise_id):
+    try:
+        last_session_exercise = SessionExercise.objects.filter(
+            exercise_id=exercise_id, session__user=request.user
+        ).order_by('-session__date').first()
+
+        if not last_session_exercise:
+            return Response(
+                {
+                    "weight": 0,
+                    "reps": 0,
+                }, 
+                status=status.HTTP_200_OK
+            )
+
+        first_set = SessionSet.objects.filter(
+            session_exercise=last_session_exercise
+        ).order_by('id').first()
+
+        if not first_set:
+            return Response(
+                {
+                    "weight": 0,
+                    "reps": 0,
+                }, 
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            {
+                "weight": first_set.weight,
+                "reps": first_set.reps,
+            }, 
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        return Response(
+            {"errors": [str(e)]}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 # Workouts
 
@@ -279,7 +331,7 @@ def editRoutine(request, user_id):
 
     routine, created = Routine.objects.get_or_create(user_id=user_id)
 
-    exercises_data = request.data['exercises']
+    exercises_data = request.data.get('exercises', [])
 
     ExerciseInRoutine.objects.filter(routine=routine).delete()
 
@@ -293,10 +345,20 @@ def editRoutine(request, user_id):
         )
 
     new_exercises = []
+    week_day_counts = {}
+
     for exercise_data in exercises_data:
         try:
             exercise_id = exercise_data['id']
             week_day = exercise_data['week_day']
+
+            if week_day not in week_day_counts:
+                week_day_counts[week_day] = 0
+            if week_day_counts[week_day] >= 15:
+                return Response(
+                    {"errors": [f"Només es permeten 15 exercicis per {week_day}."]}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             exercise = Exercise.objects.get(id=exercise_id)
             new_exercise = ExerciseInRoutine(
@@ -305,6 +367,8 @@ def editRoutine(request, user_id):
                 week_day=week_day,
             )
             new_exercises.append(new_exercise)
+            week_day_counts[week_day] += 1
+
         except Exercise.DoesNotExist:
             return Response(
                 {"errors": [f"L'exercici amb ID {exercise_id} no existeix"]}, 
@@ -328,6 +392,7 @@ def editRoutine(request, user_id):
         }, 
         status=status.HTTP_200_OK
     )
+
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -434,19 +499,76 @@ def editSession(request, user_id):
     serializer = SessionSerializer(session)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-@api_view(['GET']) 
+@api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
-def getSessionDates(request, user_id): 
+def getSessionsSummary(request, user_id):
     if request.user.id != user_id:
         return Response(
             {"errors": ["Aquest no és el teu usuari"]},
             status=status.HTTP_403_FORBIDDEN
         )
 
-    sessions_dates = Session.objects.filter(user_id=user_id).values_list('date', flat=True).order_by('date')
+    request_date = request.data.get('date')
+    if not request_date:
+        return Response(
+            {"errors": ["Data requerida"]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        session_date = datetime.strptime(request_date, '%Y-%m-%d').date()
+    except ValueError:
+        return Response(
+            {"errors": ["Data no vàlida"]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    catalan_weekdays = {
+        'Monday': 'DILLUNS',
+        'Tuesday': 'DIMARTS',
+        'Wednesday': 'DIMECRES',
+        'Thursday': 'DIJOUS',
+        'Friday': 'DIVENDRES',
+        'Saturday': 'DISSABTE',
+        'Sunday': 'DIUMENGE'
+    }
+
+    week_day = catalan_weekdays[session_date.strftime('%A')]
+
+    sessions_dates = list(Session.objects.filter(user_id=user_id).values_list('date', flat=True).order_by('date'))
+
+    exercises_data = {}
+
+    exercises_in_routine = ExerciseInRoutine.objects.filter(
+        routine__user_id=user_id, week_day=week_day
+    ).select_related('exercise')
+
+    for exercise_in_routine in exercises_in_routine:
+        exercise = exercise_in_routine.exercise
+
+        if exercise.id not in exercises_data:
+            exercises_data[exercise.id] = {
+                "id": exercise.id,
+                "name": exercise.name,
+                "weights": []
+            }
+
+        sessions = Session.objects.filter(user_id=user_id).order_by('date')
+
+        for session in sessions:
+            first_set = SessionSet.objects.filter(
+                session_exercise__session=session,
+                session_exercise__exercise=exercise
+            ).order_by('id').first()
+
+            if first_set:
+                exercises_data[exercise.id]["weights"].append(first_set.weight)
 
     return Response(
-        {"sessions_dates": list(sessions_dates)},
+        {
+            "sessions_dates": sessions_dates,
+            "exercises": list(exercises_data.values())
+        },
         status=status.HTTP_200_OK
     )
