@@ -4,8 +4,10 @@ from . import views
 urlpatterns = [
     # Exercises
     path('exercises/', views.listExercises),
+    path('exercises/saved', views.listSavedExercises),
 
     path('exercises/create', views.createExercise),
+    path('exercises/bulkCreate', views.bulkCreateExercises),
 
     path('exercises/<int:id>', views.getExercise),
     path('exercises/<int:id>/edit', views.editExercise),
@@ -21,6 +23,7 @@ urlpatterns = [
     path('workouts/', views.listWorkouts),
     
     path('workouts/create', views.createWorkout),
+    path('workouts/bulkCreate', views.bulkCreateWorkouts),
     
     path('workouts/<int:id>', views.getWorkout),
     path('workouts/<int:id>/edit', views.editWorkout),

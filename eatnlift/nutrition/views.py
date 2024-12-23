@@ -68,13 +68,21 @@ def listFoodItems(request):
             usage_count=Count('meal_food_items', filter=Q(meal_food_items__meal__user=user))
         ).order_by('-usage_count', 'name')
     else:
-        food_items = FoodItem.objects.filter(
-            meal_food_items__meal__user=user
-        ).annotate(
+        saved_food_items = SavedFoodItem.objects.filter(user=user).values_list('food_item', flat=True)
+        food_items = FoodItem.objects.filter(id__in=saved_food_items).annotate(
             usage_count=Count('meal_food_items', filter=Q(meal_food_items__meal__user=user))
         ).order_by('-usage_count', 'name')
-        
+
     serializer = FoodItemSerializer(food_items, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def listSavedFoodItems(request):
+    user = request.user
+    saved_food_items = SavedFoodItem.objects.filter(user=user).select_related('food_item')
+    serializer = FoodItemSerializer([saved.food_item for saved in saved_food_items], many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -190,6 +198,71 @@ def createRecipe(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def bulkCreateRecipes(request):
+    recipes_data = request.data.get('recipes', [])
+    
+    if not isinstance(recipes_data, list):
+        return Response({"errors": ["Expected a list of recipes."]}, status=status.HTTP_400_BAD_REQUEST)
+    
+    created_recipes = []
+    try:
+        for recipe_data in recipes_data:
+            name = recipe_data.get('name')
+            description = recipe_data.get('description', '')
+            picture = recipe_data.get('picture', None)
+            food_items_data = recipe_data.get('food_items', [])
+            
+            if not name or not isinstance(food_items_data, list):
+                return Response({"errors": ["Each recipe must have a name and a list of food items."]}, 
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            recipe, created = Recipe.objects.get_or_create(
+                name=name,
+                creator=request.user,
+                defaults={
+                    'description': description,
+                    'picture': picture or Recipe._meta.get_field('picture').default,
+                }
+            )
+            
+            recipe_food_items = []
+            for item in food_items_data:
+                food_item_id = item.get('food_item_id')
+                quantity = item.get('quantity')
+                
+                if not food_item_id or quantity is None:
+                    return Response({"errors": ["Each food item must have an ID and quantity."]}, 
+                                    status=status.HTTP_400_BAD_REQUEST)
+                
+                try:
+                    food_item = FoodItem.objects.get(id=food_item_id)
+                except FoodItem.DoesNotExist:
+                    return Response({"errors": [f"Food item with ID {food_item_id} does not exist."]}, 
+                                    status=status.HTTP_404_NOT_FOUND)
+                
+                recipe_food_items.append(
+                    RecipeFoodItem(
+                        recipe=recipe,
+                        food_item=food_item,
+                        quantity=quantity
+                    )
+                )
+            
+            RecipeFoodItem.objects.bulk_create(recipe_food_items, ignore_conflicts=True)
+            created_recipes.append(recipe)
+
+        return Response(
+            {"message": "Recipes created successfully.", "created_recipes": [r.id for r in created_recipes]}, 
+            status=status.HTTP_201_CREATED
+        )
+    
+    except Exception as e:
+        return Response({"errors": [str(e)]}, status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -238,11 +311,13 @@ def deleteRecipe(request, id):
 @permission_classes([IsAuthenticated])
 def listRecipes(request):
     search_query = request.query_params.get('name', None)
+    user = request.user
 
     if search_query:
-        recipes = Recipe.objects.filter(name__icontains=search_query, creator=request.user)
+        recipes = Recipe.objects.filter(name__icontains=search_query, creator=user)
     else:
-        recipes = Recipe.objects.filter(creator=request.user)
+        saved_recipes = SavedRecipe.objects.filter(user=user).select_related('recipe')
+        recipes = [saved.recipe for saved in saved_recipes]
 
     serializer = RecipeMinimalSerializer(recipes, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)

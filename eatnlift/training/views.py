@@ -34,19 +34,107 @@ def createExercise(request):
     
     return Response(serializer.errors, status=status.HTTP_404_NOT_FOUND)
 
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def bulkCreateExercises(request):
+    exercises_data = request.data.get('exercises', [])
+    
+    if not isinstance(exercises_data, list):
+        return Response({"errors": ["Expected a list of exercises."]}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        created_exercises = []
+        for exercise_data in exercises_data:
+            name = exercise_data.get('name')
+            description = exercise_data.get('description', '')
+            picture = exercise_data.get('picture', None)
+            trained_muscles = exercise_data.get('trained_muscles', [])
+
+            if not name or not isinstance(trained_muscles, list):
+                return Response(
+                    {"errors": ["Each exercise must have a name and a list of trained muscles."]}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            exercise, created = Exercise.objects.get_or_create(
+                name=name,
+                user=request.user,
+                defaults={
+                    'description': description,
+                    'picture': picture or Exercise._meta.get_field('picture').default,
+                    'trained_muscles': trained_muscles,
+                }
+            )
+
+            if created:
+                created_exercises.append(exercise)
+
+        return Response(
+            {"message": "Exercises created successfully.", "created_exercises": [e.id for e in created_exercises]}, 
+            status=status.HTTP_201_CREATED
+        )
+
+    except Exception as e:
+        return Response({"errors": [str(e)]}, status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def listExercises(request):
-    search_query = request.query_params.get('name', '')
+    search_query = request.query_params.get('name', None)
+    user = request.user
 
-    exercises = Exercise.objects.filter(
-        user=request.user, name__icontains=search_query
-    ).annotate(
-        session_count=Count('sessionexercise')
-    ).order_by('-session_count').values('id', 'name', 'session_count')
+    if search_query:
+        exercises = Exercise.objects.filter(
+            user=user, name__icontains=search_query
+        ).annotate(
+            session_count=Count('sessionexercise')
+        ).order_by('-session_count').values('id', 'name', 'user', 'session_count')
+    else:
+        saved_exercises = SavedExercise.objects.filter(user=user).select_related('exercise')
+        exercises = [{
+            'id': saved.exercise.id,
+            'name': saved.exercise.name,
+            'user': saved.exercise.user.id,
+            'session_count': Exercise.objects.filter(
+                id=saved.exercise.id
+            ).annotate(
+                session_count=Count('sessionexercise')
+            ).first().session_count if Exercise.objects.filter(
+                id=saved.exercise.id
+            ).exists() else 0
+        } for saved in saved_exercises]
 
     return Response(list(exercises), status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def listSavedExercises(request):
+    user = request.user
+
+    saved_exercises = SavedExercise.objects.filter(user=user).select_related('exercise')
+
+    exercises = [
+        {
+            "id": saved.exercise.id,
+            "name": saved.exercise.name,
+            "description": saved.exercise.description,
+            "user": saved.exercise.user.id,
+            "trained_muscles": saved.exercise.trained_muscles,
+            "session_count": Exercise.objects.filter(
+                id=saved.exercise.id
+            ).annotate(
+                session_count=Count('sessionexercise')
+            ).first().session_count if Exercise.objects.filter(
+                id=saved.exercise.id
+            ).exists() else 0
+        }
+        for saved in saved_exercises
+    ]
+
+    return Response(exercises, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -142,7 +230,7 @@ def getLastSessionWeight(request, exercise_id):
         if not last_session_exercise:
             return Response(
                 {
-                    "weight": 0,
+                    "weight": 0.0,
                     "reps": 0,
                 }, 
                 status=status.HTTP_200_OK
@@ -210,6 +298,60 @@ def createWorkout(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def bulkCreateWorkouts(request):
+    workouts_data = request.data.get('workouts', [])
+    
+    if not isinstance(workouts_data, list):
+        return Response({"errors": ["Expected a list of workouts."]}, status=status.HTTP_400_BAD_REQUEST)
+
+    created_workouts = []
+
+    for workout_data in workouts_data:
+        name = workout_data.get('name')
+        description = workout_data.get('description', '')
+        exercises = workout_data.get('exercises', [])
+
+        if not name:
+            return Response({"errors": ["Workout name is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        workout, created = Workout.objects.get_or_create(
+            name=name,
+            user=request.user,
+            defaults={
+                'description': description,
+            }
+        )
+
+        if not created:
+            created_workouts.append({"workout": workout.name, "skipped": True})
+            continue
+
+        for exercise_data in exercises:
+            exercise_id = exercise_data.get('exercise_id')
+            if not exercise_id:
+                continue
+
+            try:
+                exercise = Exercise.objects.get(id=exercise_id, user=request.user)
+            except Exercise.DoesNotExist:
+                return Response(
+                    {"errors": [f"Exercise with ID {exercise_id} does not exist or does not belong to the user."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            ExerciseInWorkout.objects.get_or_create(
+                workout=workout,
+                exercise=exercise,
+            )
+
+        created_workouts.append({"workout": workout.name, "skipped": False})
+
+    return Response({"message": "Workouts processed successfully.", "workouts": created_workouts}, status=status.HTTP_201_CREATED)
+
+
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -258,8 +400,18 @@ def deleteWorkout(request, id):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def listWorkouts(request):
-    search_query = request.query_params.get('name', '')
-    workouts = Workout.objects.filter(user=request.user, name__icontains=search_query).values('id', 'name')
+    search_query = request.query_params.get('name', None)
+    user = request.user
+
+    if search_query:
+        workouts = Workout.objects.filter(user=user, name__icontains=search_query).values('id', 'name')
+    else:
+        saved_workouts = SavedWorkout.objects.filter(user=user).select_related('workout')
+        workouts = [{
+            'id': saved.workout.id,
+            'name': saved.workout.name
+        } for saved in saved_workouts]
+
     return Response(list(workouts), status=status.HTTP_200_OK)
 
 

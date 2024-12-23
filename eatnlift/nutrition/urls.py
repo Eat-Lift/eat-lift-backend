@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     #   Food items
     path('foodItems/', views.listFoodItems),
+    path('foodItems/saved', views.listSavedFoodItems),
 
     path('foodItems/create', views.createFoodItem),
     path('foodItems/bulkCreate', views.bulkCreateFoodItems),
@@ -21,6 +22,7 @@ urlpatterns = [
     path('recipes/<int:id>', views.getRecipe),
     
     path('recipes/create', views.createRecipe),
+    path('recipes/bulkCreate', views.bulkCreateRecipes),
 
     path('recipes/<int:id>/delete', views.deleteRecipe),
     path('recipes/<int:id>/edit', views.editRecipe),
