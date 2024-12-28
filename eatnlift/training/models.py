@@ -19,6 +19,7 @@ class Muscles(models.TextChoices):
     GLUTI = "Gluti"
     PARAVERTEBRAL = "Paravertebral"
     ABDOMINALS = "Abdominals"
+    PLANXELLS = "Planxells"
 
 # Exercises
 
