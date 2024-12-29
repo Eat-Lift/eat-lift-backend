@@ -64,7 +64,7 @@ class SessionExerciseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SessionExercise
-        fields = ['exercise', 'sets']
+        fields = ['id', 'exercise', 'sets']
 
 class SessionSerializer(serializers.ModelSerializer):
     exercises = SessionExerciseSerializer(many=True, read_only=True)

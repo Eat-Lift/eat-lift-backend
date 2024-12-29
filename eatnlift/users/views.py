@@ -395,3 +395,30 @@ def getChecksSummary(request, user_id):
         )
 
     return Response(list(checks), status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getLastCheck(request, user_id):
+    if request.user.id != user_id:
+        return Response(
+            {"errors": ["Aquest no és el teu usuari"]},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        last_check = Check.objects.filter(user_id=user_id).order_by('-date').first()
+
+        if not last_check:
+            return Response(
+                {"errors": ["Cap registre trobat per a aquest usuari."]},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = CheckSerializer(last_check)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Check.DoesNotExist:
+        return Response(
+            {"errors": ["Cap registre trobat per a aquest usuari."]},
+            status=status.HTTP_404_NOT_FOUND
+        )

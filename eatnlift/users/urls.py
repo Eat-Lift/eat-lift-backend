@@ -18,4 +18,5 @@ urlpatterns = [
     path('checks/<int:user_id>/dates', views.getCheckDates),
     path('checks/<int:user_id>/create', views.createCheck),
     path('checks/<int:user_id>/summary', views.getChecksSummary),
+    path('checks/<int:user_id>/lastCheck', views.getLastCheck),
 ]
