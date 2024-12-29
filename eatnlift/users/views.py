@@ -386,7 +386,7 @@ def getChecksSummary(request, user_id):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    checks = Check.objects.filter(user_id=user_id).order_by('date').values('date', 'bodyfat', 'weight')
+    checks = Check.objects.filter(user_id=user_id).order_by('date').values('date', 'bodyfat', 'weight')[:15]
 
     if not checks:
         return Response(

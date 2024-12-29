@@ -66,12 +66,12 @@ def listFoodItems(request):
     if search_query:
         food_items = FoodItem.objects.filter(name__icontains=search_query).annotate(
             usage_count=Count('meal_food_items', filter=Q(meal_food_items__meal__user=user))
-        ).order_by('-usage_count', 'name')
+        ).order_by('-usage_count', 'name')[:50]
     else:
         saved_food_items = SavedFoodItem.objects.filter(user=user).values_list('food_item', flat=True)
         food_items = FoodItem.objects.filter(id__in=saved_food_items).annotate(
             usage_count=Count('meal_food_items', filter=Q(meal_food_items__meal__user=user))
-        ).order_by('-usage_count', 'name')
+        ).order_by('-usage_count', 'name')[:50]
 
     serializer = FoodItemSerializer(food_items, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -81,7 +81,7 @@ def listFoodItems(request):
 @permission_classes([IsAuthenticated])
 def listSavedFoodItems(request):
     user = request.user
-    saved_food_items = SavedFoodItem.objects.filter(user=user).select_related('food_item')
+    saved_food_items = SavedFoodItem.objects.filter(user=user).select_related('food_item')[:50]
     serializer = FoodItemSerializer([saved.food_item for saved in saved_food_items], many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -314,9 +314,9 @@ def listRecipes(request):
     user = request.user
 
     if search_query:
-        recipes = Recipe.objects.filter(name__icontains=search_query, creator=user)
+        recipes = Recipe.objects.filter(name__icontains=search_query, creator=user)[:50]
     else:
-        saved_recipes = SavedRecipe.objects.filter(user=user).select_related('recipe')
+        saved_recipes = SavedRecipe.objects.filter(user=user).select_related('recipe')[:50]
         recipes = [saved.recipe for saved in saved_recipes]
 
     serializer = RecipeMinimalSerializer(recipes, many=True)

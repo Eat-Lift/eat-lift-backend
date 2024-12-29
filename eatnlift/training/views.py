@@ -90,7 +90,7 @@ def listExercises(request):
             user=user, name__icontains=search_query
         ).annotate(
             session_count=Count('sessionexercise')
-        ).order_by('-session_count').values('id', 'name', 'user', 'session_count')
+        ).order_by('-session_count').values('id', 'name', 'user', 'session_count')[:50]
     else:
         saved_exercises = SavedExercise.objects.filter(user=user).select_related('exercise')
         exercises = [{
@@ -104,7 +104,7 @@ def listExercises(request):
             ).first().session_count if Exercise.objects.filter(
                 id=saved.exercise.id
             ).exists() else 0
-        } for saved in saved_exercises]
+        } for saved in saved_exercises][:50]
 
     return Response(list(exercises), status=status.HTTP_200_OK)
 
@@ -114,7 +114,7 @@ def listExercises(request):
 def listSavedExercises(request):
     user = request.user
 
-    saved_exercises = SavedExercise.objects.filter(user=user).select_related('exercise')
+    saved_exercises = SavedExercise.objects.filter(user=user).select_related('exercise')[:50]
 
     exercises = [
         {
@@ -141,8 +141,17 @@ def listSavedExercises(request):
 @permission_classes([IsAuthenticated])
 def getExercise(request, id):
     exercise = get_object_or_404(Exercise, id=id, user=request.user)
+    
+    weights = SessionSet.objects.filter(
+        session_exercise__exercise=exercise,
+        session_exercise__session__user=request.user
+    ).order_by('id').values_list('weight', flat=True)[:15]
+
     serializer = ExerciseSerializer(exercise)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    exercise_data = serializer.data
+    exercise_data['weights'] = list(weights)
+
+    return Response(exercise_data, status=status.HTTP_200_OK)
 
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
@@ -404,9 +413,9 @@ def listWorkouts(request):
     user = request.user
 
     if search_query:
-        workouts = Workout.objects.filter(user=user, name__icontains=search_query).values('id', 'name')
+        workouts = Workout.objects.filter(user=user, name__icontains=search_query).values('id', 'name')[:50]
     else:
-        saved_workouts = SavedWorkout.objects.filter(user=user).select_related('workout')
+        saved_workouts = SavedWorkout.objects.filter(user=user).select_related('workout')[:50]
         workouts = [{
             'id': saved.workout.id,
             'name': saved.workout.name
@@ -716,6 +725,8 @@ def getSessionsSummary(request, user_id):
 
             if first_set:
                 exercises_data[exercise.id]["weights"].append(first_set.weight)
+
+            exercises_data[exercise.id]["weights"] = exercises_data[exercise.id]["weights"][:15]
 
     return Response(
         {
