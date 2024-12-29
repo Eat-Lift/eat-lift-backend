@@ -141,15 +141,24 @@ def listSavedExercises(request):
 @permission_classes([IsAuthenticated])
 def getExercise(request, id):
     exercise = get_object_or_404(Exercise, id=id, user=request.user)
+
+    sessions = Session.objects.filter(user=request.user).order_by('date')
     
-    weights = SessionSet.objects.filter(
-        session_exercise__exercise=exercise,
-        session_exercise__session__user=request.user
-    ).order_by('id').values_list('weight', flat=True)[:15]
+    weights = []
+    for session in sessions:
+        first_set = SessionSet.objects.filter(
+            session_exercise__session=session,
+            session_exercise__exercise=exercise
+        ).order_by('id').first()
+        
+        if first_set:
+            weights.append(first_set.weight)
+            if len(weights) >= 15:
+                break
 
     serializer = ExerciseSerializer(exercise)
     exercise_data = serializer.data
-    exercise_data['weights'] = list(weights)
+    exercise_data['weights'] = weights
 
     return Response(exercise_data, status=status.HTTP_200_OK)
 
