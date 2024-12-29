@@ -396,7 +396,7 @@ def getChecksSummary(request, user_id):
 
     return Response(list(checks), status=status.HTTP_200_OK)
 
-@api_view(['POST'])
+@api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def getLastCheck(request, user_id):
